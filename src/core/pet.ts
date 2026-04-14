@@ -104,7 +104,10 @@ export function awardExp(state: PetState, baseExp: number, type: string): string
   const messages: string[] = [];
   const bonus = SPECIES_BONUSES[state.species];
 
-  let exp = baseExp;
+  let exp = baseExp || 0;
+
+  // Guard against NaN/null corruption
+  if (isNaN(state.exp) || state.exp === null) state.exp = 0;
 
   // Apply species bonus
   if (bonus.type === type) {

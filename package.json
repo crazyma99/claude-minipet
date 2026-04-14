@@ -1,6 +1,6 @@
 {
   "name": "claude-minipet",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "🐾 A virtual pet for Claude Code TUI — it grows, evolves, and codes with you! / Claude Code 终端虚拟宠物 - 陪你写代码、升级、进化！",
   "type": "module",
   "bin": {
