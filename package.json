@@ -1,0 +1,44 @@
+{
+  "name": "claude-minipet",
+  "version": "0.1.0",
+  "description": "🐾 A virtual pet that lives in Claude Code's TUI — feed it, watch it evolve, collect rare species!",
+  "type": "module",
+  "bin": {
+    "claude-minipet": "./dist/cli/index.js"
+  },
+  "files": [
+    "dist/**/*"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "postinstall": "node dist/cli/setup.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "claude-code",
+    "virtual-pet",
+    "tui",
+    "terminal",
+    "ascii-art",
+    "pixel-art",
+    "tamagotchi",
+    "claude",
+    "ai-companion"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/crazyma99/claude-minipet.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
