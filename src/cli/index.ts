@@ -13,11 +13,17 @@ import { triggerAnim } from '../render/anim-state.js';
 import { loadAuth, saveAuth, sendCode, verifyCode, syncPetToServer, fetchPetFromServer, redeemCode } from '../core/sync.js';
 import type { PetConfig } from '../core/types.js';
 import { createInterface } from 'node:readline';
+import { checkAndUpdate } from '../core/updater.js';
 
 const args = process.argv.slice(2);
 const command = args[0];
 
 async function main() {
+  // Auto-update check (skip for hook/statusline to avoid latency)
+  if (command !== 'hook' && command !== 'statusline' && command !== 'daemon') {
+    await checkAndUpdate();
+  }
+
   switch (command) {
     case 'init':
       await initPet();

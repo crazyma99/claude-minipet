@@ -148,9 +148,35 @@ export function awardExp(state: PetState, baseExp: number, type: string): string
   return messages;
 }
 
+/** Estimate content size from hook input for bonus EXP */
+function estimateContentSize(input: HookInput): number {
+  let chars = 0;
+  // Count tool_input content
+  if (input.tool_input) {
+    const inputStr = JSON.stringify(input.tool_input);
+    chars += inputStr.length;
+  }
+  // Count tool_response content
+  if (input.tool_response) {
+    chars += input.tool_response.length;
+  }
+  // Count prompt content
+  if (input.prompt) {
+    chars += input.prompt.length;
+  }
+  return chars;
+}
+
+/** Calculate content bonus: floor(chars / 200), capped at 50 */
+function contentBonus(chars: number): number {
+  return Math.min(50, Math.floor(chars / 200));
+}
+
 /** Process a hook event and return messages */
 export function processHookEvent(state: PetState, input: HookInput): string[] {
   const messages: string[] = [];
+  const contentSize = estimateContentSize(input);
+  const bonus = contentBonus(contentSize);
 
   switch (input.hook_event_name) {
     case 'SessionStart': {
@@ -175,7 +201,7 @@ export function processHookEvent(state: PetState, input: HookInput): string[] {
     }
 
     case 'UserPromptSubmit': {
-      messages.push(...awardExp(state, EXP_REWARDS.prompt, 'prompt'));
+      messages.push(...awardExp(state, EXP_REWARDS.prompt + bonus, 'prompt'));
       break;
     }
 
@@ -183,31 +209,30 @@ export function processHookEvent(state: PetState, input: HookInput): string[] {
       const toolName = input.tool_name?.toLowerCase() ?? '';
       if (toolName === 'bash') {
         state.stats.totalBash++;
-        // Check for git commit
         const cmd = String(input.tool_input?.command ?? '');
         if (cmd.includes('git commit')) {
           state.stats.totalCommits++;
-          messages.push(...awardExp(state, EXP_REWARDS.git_commit, 'git'));
+          messages.push(...awardExp(state, EXP_REWARDS.git_commit + bonus, 'git'));
         } else if (cmd.includes('git push') || cmd.includes('gh pr create')) {
           state.stats.totalPRs++;
-          messages.push(...awardExp(state, EXP_REWARDS.git_pr, 'git'));
+          messages.push(...awardExp(state, EXP_REWARDS.git_pr + bonus, 'git'));
         } else if (cmd.includes('test') || cmd.includes('vitest') || cmd.includes('jest') || cmd.includes('pytest')) {
           state.stats.totalTests++;
           const response = input.tool_response ?? '';
           if (response.includes('passed') || response.includes('PASS')) {
-            messages.push(...awardExp(state, EXP_REWARDS.test_pass, 'test'));
+            messages.push(...awardExp(state, EXP_REWARDS.test_pass + bonus, 'test'));
           } else {
-            messages.push(...awardExp(state, EXP_REWARDS.bash, 'bash'));
+            messages.push(...awardExp(state, EXP_REWARDS.bash + bonus, 'bash'));
           }
         } else {
-          messages.push(...awardExp(state, EXP_REWARDS.bash, 'bash'));
+          messages.push(...awardExp(state, EXP_REWARDS.bash + bonus, 'bash'));
         }
       } else if (toolName === 'edit' || toolName === 'write') {
         state.stats.totalEdits++;
-        messages.push(...awardExp(state, EXP_REWARDS.edit, 'edit'));
+        messages.push(...awardExp(state, EXP_REWARDS.edit + bonus, 'edit'));
       } else if (toolName === 'read') {
         state.stats.totalReads++;
-        messages.push(...awardExp(state, EXP_REWARDS.read, 'read'));
+        messages.push(...awardExp(state, EXP_REWARDS.read + bonus, 'read'));
       }
       break;
     }
