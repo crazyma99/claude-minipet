@@ -7,6 +7,7 @@ import { renderSprite, buildPalette, progressBar, fg, RESET, BOLD, padEnd } from
 import { getCurrentFrame, getEyeForAnim, getMouthForAnim, getAnimDecoration } from './frames.js';
 import { loadAnimState } from './anim-state.js';
 import { loadAuth } from '../core/sync.js';
+import { getStatusBubble, renderBubble } from './bubble.js';
 
 /** Render the full status line output */
 export function renderStatusLine(state: PetState): string {
@@ -125,6 +126,11 @@ export function renderStatusLine(state: PetState): string {
     const statsPart = i < statsLines.length ? statsLines[i] : '';
     output.push(`${petPart}${gap}${statsPart}`);
   }
+
+  // Speech bubble (always shown — real-time status awareness)
+  const bubbleText = getStatusBubble(state);
+  const bubbleWidth = 50;
+  output.push(renderBubble(bubbleText, bubbleWidth));
 
   return output.join('\n');
 }

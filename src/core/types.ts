@@ -69,6 +69,9 @@ export interface PetState {
   createdAt: string;
   lastFed: string;
   lastInteraction: string;
+  lastComment?: string;       // ISO timestamp of last pet comment
+  lastActivityTime?: string;  // ISO timestamp for idle detection
+  recentFailures?: number;    // consecutive bash failures counter
   stats: Stats;
 }
 

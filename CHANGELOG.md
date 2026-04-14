@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2026-04-14
+
+### Added
+- **Pet speech bubble**: always-on bubble below pet in status line, real-time status awareness
+  - `>> 疯狂Coding中... [elapsed]` — animated dots when Claude is working
+  - `[ok] 任务完成了！(用时 Xm Xs)` — shown when Claude stops, with duration
+  - Level-up, evolution, and stage-up notifications shown in bubble for 30s
+  - Idle status: thinking (2-10min), napping (10-60min), missing you (1h+)
+  - Critical alerts: hungry, sad mood, consecutive errors
+  - Time-based greetings: late night, early morning, lunch time
+- **Code comments system**: pet reacts to coding patterns every 5 minutes
+  - No tests written? "commit 了但没 test，主人胆子真大！"
+  - High activity? "主人今天好肝啊...注意身体哦！"
+  - Write more than read? "主人写代码不看文档的吗？"
+- **Mood reacts to code quality**
+  - Bash errors: mood -2 (consecutive 3+ errors: mood -5 + sad animation)
+  - Test passes: mood +5 + happy animation
+  - Warnings: mood -1
+- **Easter eggs**: late night reminders, idle return greetings, random daily chat (2% chance)
+
 ## [0.4.1] - 2026-04-14
 
 ### Added

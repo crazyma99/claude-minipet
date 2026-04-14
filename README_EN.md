@@ -103,18 +103,42 @@ Your current pet will be replaced with a new Lv.1 pet. Codes are generated and d
 - **🎨 Pixel Art Rendering** — Unicode half-blocks + ANSI 24-bit true color
 - **💫 Multi-frame Animation** — Blink, eat, level up, evolve effects
 - **☁️ Cloud Sync** — Email login, auto-sync, cross-device support
+- **💬 Speech Bubble** — Real-time bubble showing work status, comments, and easter eggs
+- **🧠 AI-Aware** — Auto-recognized in new sessions, say "feed my pet" and it just works
+
+## Speech Bubble
+
+A real-time bubble is always shown below your pet in the status line:
+
+```
+╭────────────────────────────────────────────────╮
+│ >> Coding...  [3m25s]                          │  ← Claude is working
+╰────────────────────────────────────────────────╯
+
+╭────────────────────────────────────────────────╮
+│ [ok] Task complete! (took 5m12s)               │  ← Claude stopped
+╰────────────────────────────────────────────────╯
+```
+
+Your pet also reacts to coding patterns:
+- Commits without tests → "No tests? Bold move..."
+- Consecutive errors → "Errors again... hang in there!"
+- Late night coding → "It's late, time to rest!"
+- Back after long idle → "You're back! I missed you~"
 
 ## EXP Gain
 
-| Event | EXP |
-|-------|-----|
-| Send message | +2 |
-| Bash command | +3 |
-| Edit/Write file | +5 |
-| Read file | +1 |
-| Test passes | +10 |
-| Git commit | +15 |
-| Create PR | +20 |
+| Event | Base EXP | Content Bonus |
+|-------|---------|--------------|
+| Send message | +3 | +1/100 chars |
+| Bash command | +5 | +1/100 chars |
+| Edit/Write file | +8 | +1/100 chars |
+| Read file | +2 | +1/100 chars |
+| Test passes | +15 | +1/100 chars |
+| Git commit | +20 | +1/100 chars |
+| Create PR | +30 | +1/100 chars |
+
+Content bonus capped at +50. Larger operations earn more EXP.
 
 ## Species
 
