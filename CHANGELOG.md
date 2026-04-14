@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.1] - 2026-04-14
+
+### Added
+- **Cloud connection status**: colored dot + status text below speech bubble
+  - 🟢 已连接 — sync successful within 5 min
+  - 🟡 同步中断 / 等待同步 — stale or pending
+  - 🔴 连接失败 / 未登录 — error or not logged in
+- Email moved from DNA line to connection status line
+
 ## [0.6.0] - 2026-04-14
 
 ### Changed

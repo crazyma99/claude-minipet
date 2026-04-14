@@ -4,6 +4,7 @@ import { RARITY_INFO } from '../core/rarity.js';
 import { evolutionAnimation, levelUpNotification, stageUpNotification, greetingMessage } from '../render/animation.js';
 import { triggerAnim } from '../render/anim-state.js';
 import { syncPetToServer, loadAuth } from '../core/sync.js';
+import { saveSyncStatus } from '../core/sync-status.js';
 import { generateCodeComment, reactToCodeQuality, checkEasterEgg } from '../core/comments.js';
 import { saveBubble, setBubbleCoding, setBubbleDone } from '../render/bubble.js';
 import type { HookInput } from '../core/types.js';
@@ -122,9 +123,11 @@ export async function handleHook(): Promise<void> {
   state.lastActivityTime = new Date().toISOString();
   saveState(state);
 
-  // Background sync to server (fire and forget)
+  // Background sync to server (track connection status)
   if (loadAuth()) {
-    syncPetToServer(state).catch(() => {});
+    syncPetToServer(state)
+      .then(ok => saveSyncStatus(ok))
+      .catch(() => saveSyncStatus(false, 'connection failed'));
   }
 
   // Output for Claude Code hooks:

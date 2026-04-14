@@ -7,6 +7,7 @@ import { renderSprite, buildPalette, progressBar, fg, RESET, BOLD, padEnd } from
 import { getCurrentFrame, getEyeForAnim, getMouthForAnim, getAnimDecoration } from './frames.js';
 import { loadAnimState } from './anim-state.js';
 import { loadAuth } from '../core/sync.js';
+import { loadSyncStatus } from '../core/sync-status.js';
 import { getStatusBubble, renderBubble } from './bubble.js';
 
 /** Render the full status line output */
@@ -105,15 +106,11 @@ export function renderStatusLine(state: PetState): string {
   const animDeco = getAnimDecoration(trigger, frame);
   const decoStr = animDeco ? `${fg(rarityInfo.color)}${animDeco}${RESET}` : '';
 
-  // Auth info
-  const auth = loadAuth();
-  const emailStr = auth ? ` ${fg(dimColor)}${auth.email}${RESET}` : '';
-
   const statsLines = [
     `${shinyPrefix}${BOLD}${state.name}${RESET} ${rc}Lv.${state.level}${RESET} ${rarityDisplay}${decoStr}`,
     `⭐ 经验 ${expBar} ${expPct}%`,
     `💗 心情 ${state.mood} 🍖 饱食 ${Math.round(state.hunger)} 💎 亲密 ${Math.floor(state.bond)}`,
-    `${fg(dimColor)}>${RESET} ${evoName} 🧬 ${fg(dimColor)}${state.dna}${RESET}${emailStr}`,
+    `${fg(dimColor)}>${RESET} ${evoName} 🧬 ${fg(dimColor)}${state.dna}${RESET}`,
   ];
 
   // Side-by-side layout: pet art left, stats right
@@ -131,6 +128,40 @@ export function renderStatusLine(state: PetState): string {
   const bubbleText = getStatusBubble(state);
   const bubbleWidth = 50;
   output.push(renderBubble(bubbleText, bubbleWidth));
+
+  // Cloud connection status
+  const auth = loadAuth();
+  const syncStatus = loadSyncStatus();
+  const greenDot: Color = { r: 80, g: 220, b: 100 };
+  const yellowDot: Color = { r: 255, g: 200, b: 50 };
+  const redDot: Color = { r: 220, g: 60, b: 60 };
+
+  let statusDot: string;
+  let statusText: string;
+
+  if (!auth) {
+    statusDot = `${fg(redDot)}●${RESET}`;
+    statusText = `${fg(dimColor)}未登录${RESET}`;
+  } else if (!syncStatus) {
+    statusDot = `${fg(yellowDot)}●${RESET}`;
+    statusText = `${fg(dimColor)}等待同步${RESET}`;
+  } else if (syncStatus.connected) {
+    // Check if sync is recent (within 5 min)
+    const age = Date.now() - new Date(syncStatus.lastSyncTime).getTime();
+    if (age < 5 * 60 * 1000) {
+      statusDot = `${fg(greenDot)}●${RESET}`;
+      statusText = `${fg(dimColor)}已连接${RESET}`;
+    } else {
+      statusDot = `${fg(yellowDot)}●${RESET}`;
+      statusText = `${fg(dimColor)}同步中断${RESET}`;
+    }
+  } else {
+    statusDot = `${fg(redDot)}●${RESET}`;
+    statusText = `${fg(dimColor)}连接失败${RESET}`;
+  }
+
+  const emailDisplay = auth ? ` ${fg(dimColor)}${auth.email}${RESET}` : '';
+  output.push(`${statusDot} ${statusText}${emailDisplay}`);
 
   return output.join('\n');
 }
