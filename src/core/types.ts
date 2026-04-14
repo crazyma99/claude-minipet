@@ -102,15 +102,15 @@ export interface HookInput {
 
 /** EXP reward table */
 export const EXP_REWARDS: Record<string, number> = {
-  prompt: 2,
-  bash: 3,
-  edit: 5,
-  write: 5,
-  read: 1,
-  test_pass: 10,
-  git_commit: 15,
-  git_pr: 20,
-  long_session: 25,
+  prompt: 3,
+  bash: 5,
+  edit: 8,
+  write: 8,
+  read: 2,
+  test_pass: 15,
+  git_commit: 20,
+  git_pr: 30,
+  long_session: 35,
 };
 
 /** Species passive bonus descriptions */

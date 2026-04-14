@@ -52,7 +52,8 @@ export function saveConfig(config: PetConfig): void {
 
 /** Calculate EXP required to reach a given level */
 export function expForLevel(level: number): number {
-  return Math.floor(100 * Math.pow(level, 1.5));
+  // Gentle curve: 20 + 10*level — fast early levels, steady growth
+  return 20 + 10 * level;
 }
 
 /** Determine stage from level */
@@ -170,9 +171,9 @@ function estimateContentSize(input: HookInput): number {
   return chars;
 }
 
-/** Calculate content bonus: floor(chars / 200), capped at 50 */
+/** Calculate content bonus: floor(chars / 100), capped at 50 */
 function contentBonus(chars: number): number {
-  return Math.min(50, Math.floor(chars / 200));
+  return Math.min(50, Math.floor(chars / 100));
 }
 
 /** Process a hook event and return messages */
