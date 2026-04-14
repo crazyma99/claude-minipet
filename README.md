@@ -11,10 +11,10 @@
 ## 安装
 
 ```bash
-npm install -g claude-minipet
+npm install -g claude-minipet && claude-minipet init
 ```
 
-安装时会自动引导你完成配置：
+一条命令完成安装和配置：
 
 ```
 🐾 欢迎使用 Claude MiniPet!

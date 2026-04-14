@@ -1,6 +1,6 @@
 {
   "name": "claude-minipet",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "🐾 A virtual pet that lives in Claude Code's TUI — feed it, watch it evolve, collect rare species!",
   "type": "module",
   "bin": {

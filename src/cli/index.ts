@@ -76,72 +76,152 @@ async function main() {
   }
 }
 
-async function initPet() {
-  const existing = loadState();
-  if (existing) {
-    console.log(`你已经有一只宠物了: ${existing.name} (${SPECIES_NAMES[existing.species].zh})`);
-    console.log('如果想重新开始，请先删除 ~/.claude-minipet/state.json');
-    return;
-  }
+const DEFAULT_SERVER = 'https://minipet.crazyma99.xyz';
 
+async function initPet() {
   ensureDataDir();
 
-  // Generate DNA
+  console.log('');
+  console.log(`  ${BOLD}🐾 欢迎使用 Claude MiniPet!${RESET}`);
+  console.log('');
+
+  // ===== Step 1: Login (if not already) =====
+  let auth = loadAuth();
+  if (!auth) {
+    console.log('  首先，让我们创建你的账号。');
+    console.log('');
+
+    const email = await prompt('  📧 请输入你的邮箱: ');
+    if (!email || !email.includes('@')) {
+      console.log('  ❌ 邮箱格式不正确');
+      createLocalPet();
+      return;
+    }
+
+    console.log('  📤 发送验证码中...');
+    const sendResult = await sendCode(DEFAULT_SERVER, email);
+    if (!sendResult.ok) {
+      console.log(`  ❌ ${sendResult.error ?? '无法连接服务器'}`);
+      console.log('  将以离线模式运行，稍后可用 claude-minipet login 登录');
+      createLocalPet();
+      return;
+    }
+    console.log('  ✅ 验证码已发送到你的邮箱');
+    console.log('');
+
+    const code = await prompt('  🔑 请输入验证码: ');
+    if (!code) {
+      console.log('  已跳过登录');
+      createLocalPet();
+      return;
+    }
+
+    const verifyResult = await verifyCode(DEFAULT_SERVER, email, code);
+    if (!verifyResult.ok || !verifyResult.token) {
+      console.log(`  ❌ ${verifyResult.error ?? '验证失败'}`);
+      console.log('  将以离线模式运行，稍后可用 claude-minipet login 重试');
+      createLocalPet();
+      return;
+    }
+
+    saveAuth({ token: verifyResult.token, email, userId: verifyResult.userId!, serverUrl: DEFAULT_SERVER });
+    auth = loadAuth();
+    console.log(`  ✅ 登录成功! (${email})`);
+    console.log('');
+  } else {
+    console.log(`  ✅ 已登录: ${auth.email}`);
+  }
+
+  // ===== Step 2: Create or restore pet =====
+  const existing = loadState();
+  if (existing) {
+    console.log(`  🐾 宠物已存在: ${existing.name} (${SPECIES_NAMES[existing.species].zh})`);
+    if (auth) {
+      await syncPetToServer(existing);
+      console.log('  ☁️  数据已同步到云端');
+    }
+  } else {
+    // Try cloud restore first
+    let state = null;
+    if (auth) {
+      console.log('  ☁️  检查云端数据...');
+      state = await fetchPetFromServer();
+      if (state) {
+        saveState(state);
+        console.log(`  ✅ 从云端恢复了你的宠物: ${state.name}!`);
+      }
+    }
+
+    // No cloud data — create new pet
+    if (!state) {
+      state = createNewPet();
+      if (auth) {
+        await syncPetToServer(state);
+        console.log('  ☁️  宠物数据已上传到云端');
+      }
+    }
+  }
+
+  // ===== Step 3: Hooks + Daemon =====
+  finishSetup();
+}
+
+/** Create a new pet and display it */
+function createNewPet() {
   const dna = generateDNA();
   const speciesInfo = SPECIES_NAMES[dna.species];
   const rarityInfo = RARITY_INFO[dna.rarity];
   const rc = fg(rarityInfo.color);
 
-  // Create pet with default name
-  const defaultName = speciesInfo.zh;
-  const state = createPet(defaultName, dna.species, dna.raw, dna.rarity);
+  const state = createPet(speciesInfo.zh, dna.species, dna.raw, dna.rarity);
   saveState(state);
+  saveConfig({ language: 'zh', animationsEnabled: true, statusLineRows: 3 } as PetConfig);
 
-  // Save default config
-  const config: PetConfig = { language: 'zh', animationsEnabled: true, statusLineRows: 3 };
-  saveConfig(config);
-
-  // Show birth announcement
   console.log('');
   console.log(`  ✨ ${BOLD}一只新的宠物诞生了!${RESET} ✨`);
   console.log('');
   console.log(`  种族: ${fg(dna.primaryColor)}${BOLD}${speciesInfo.zh}${RESET} (${speciesInfo.en})`);
   console.log(`  稀有度: ${rc}${getRarityDisplay(dna.rarity, 'zh')}${RESET}`);
-  console.log(`  DNA: ${dna.raw}`);
+  console.log(`  🧬 DNA: ${dna.raw}`);
   console.log('');
-
-  // Show the pet
   console.log(renderStatusLine(state));
   console.log('');
   console.log(`  用 ${BOLD}claude-minipet rename <名字>${RESET} 给它起个名字吧!`);
-  console.log('');
+  return state;
+}
 
-  // Install hooks
+/** Create pet without login (offline mode) */
+function createLocalPet() {
+  const existing = loadState();
+  if (!existing) {
+    createNewPet();
+  }
+  finishSetup();
+}
+
+/** Install hooks, start daemon */
+async function finishSetup() {
   try {
     installHooks();
     console.log('  ✅ Claude Code hooks 已配置');
   } catch (err) {
     console.log(`  ⚠️  Hook 配置失败: ${err}`);
-    console.log('  请手动配置 ~/.claude/settings.json');
   }
 
-  // Start daemon
   if (!isDaemonRunning()) {
-    console.log('  🔄 启动后台守护进程...');
-    // Fork daemon as detached process
-    const { spawn } = await import('node:child_process');
-    const daemonPath = new URL('../daemon/server.js', import.meta.url).pathname;
-    // We'll use the CLI entry point with daemon start
-    const child = spawn(process.execPath, [process.argv[1], 'daemon', 'start'], {
-      detached: true,
-      stdio: 'ignore',
-    });
-    child.unref();
-    console.log('  ✅ 守护进程已启动');
+    try {
+      const { spawn } = await import('node:child_process');
+      const child = spawn(process.execPath, [process.argv[1], 'daemon', 'start'], {
+        detached: true,
+        stdio: 'ignore',
+      });
+      child.unref();
+      console.log('  ✅ 守护进程已启动');
+    } catch { /* ignore */ }
   }
 
   console.log('');
-  console.log(`  ${BOLD}开始使用 Claude Code 吧，你的宠物会陪伴你! 🎉${RESET}`);
+  console.log(`  ${BOLD}重启 Claude Code 就能看到你的宠物了! 🎉${RESET}`);
   console.log('');
 }
 
