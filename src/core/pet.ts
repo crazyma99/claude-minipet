@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, extname, basename } from 'node:path';
 import { homedir } from 'node:os';
 import type { PetState, PetConfig, Species, Rarity, Stage, Stats, HookInput } from './types.js';
 import { EXP_REWARDS, SPECIES_BONUSES } from './types.js';
@@ -18,11 +18,15 @@ export function ensureDataDir(): void {
   }
 }
 
-/** Read pet state from disk */
+/** Read pet state from disk (with migration for new fields) */
 export function loadState(): PetState | null {
   try {
     const raw = readFileSync(STATE_FILE, 'utf-8');
-    return JSON.parse(raw) as PetState;
+    const state = JSON.parse(raw) as PetState;
+    // Migration: add fields introduced in language-detection update
+    if (!state.stats.langEdits) state.stats.langEdits = {};
+    if (state.stats.nightEdits === undefined) state.stats.nightEdits = 0;
+    return state;
   } catch {
     return null;
   }
@@ -58,8 +62,8 @@ export function expForLevel(level: number): number {
 
 /** Determine stage from level */
 export function stageFromLevel(level: number): Stage {
-  if (level < 16) return 'baby';
-  if (level < 41) return 'growth';
+  if (level < 12) return 'baby';
+  if (level < 30) return 'growth';
   return 'final';
 }
 
@@ -96,6 +100,8 @@ export function createPet(name: string, species: Species, dna: string, rarity: R
       loginStreak: 1,
       lastLoginDate: today,
       moodHistory: [80],
+      langEdits: {},
+      nightEdits: 0,
     },
   };
 }
@@ -176,6 +182,52 @@ function contentBonus(chars: number): number {
   return Math.min(50, Math.floor(chars / 100));
 }
 
+/** Extension → language category mapping */
+const EXT_TO_LANG: Record<string, string> = {
+  '.py': 'python', '.pyw': 'python', '.ipynb': 'python',
+  '.tsx': 'frontend', '.jsx': 'frontend', '.vue': 'frontend', '.svelte': 'frontend',
+  '.css': 'frontend', '.scss': 'frontend', '.less': 'frontend', '.html': 'frontend', '.astro': 'frontend',
+  '.go': 'backend', '.java': 'backend', '.rs': 'backend', '.c': 'backend', '.cpp': 'backend',
+  '.h': 'backend', '.cs': 'backend', '.kt': 'backend', '.scala': 'backend', '.rb': 'backend',
+  '.php': 'backend', '.ex': 'backend', '.erl': 'backend',
+  '.ts': 'scripting', '.js': 'scripting', '.mjs': 'scripting', '.cjs': 'scripting',
+  '.sh': 'scripting', '.bash': 'scripting', '.zsh': 'scripting', '.fish': 'scripting', '.ps1': 'scripting',
+  '.md': 'docs', '.txt': 'docs', '.rst': 'docs', '.adoc': 'docs', '.tex': 'docs',
+  '.json': 'docs', '.yaml': 'docs', '.yml': 'docs', '.toml': 'docs', '.xml': 'docs',
+  '.csv': 'docs', '.sql': 'docs',
+  '.tf': 'ops', '.hcl': 'ops',
+};
+
+/** Detect language category from file path */
+export function detectLangCategory(filePath: string): string | null {
+  // Special path/filename-based detection first (before extension check)
+  const name = basename(filePath).toLowerCase();
+  if (name.includes('dockerfile') || name.includes('docker-compose')) return 'ops';
+  if (filePath.includes('.github/workflows/')) return 'ops';
+
+  const ext = extname(filePath).toLowerCase();
+  if (EXT_TO_LANG[ext]) return EXT_TO_LANG[ext];
+
+  return null;
+}
+
+/** Track language and night edits from a file operation */
+function trackFileStats(state: PetState, input: HookInput): void {
+  const filePath = String(input.tool_input?.file_path ?? '');
+  if (filePath) {
+    const category = detectLangCategory(filePath);
+    if (category) {
+      state.stats.langEdits[category] = (state.stats.langEdits[category] ?? 0) + 1;
+    }
+  }
+
+  // Track night edits (22:00 - 06:00)
+  const hour = new Date().getHours();
+  if (hour >= 22 || hour < 6) {
+    state.stats.nightEdits = (state.stats.nightEdits ?? 0) + 1;
+  }
+}
+
 /** Process a hook event and return messages */
 export function processHookEvent(state: PetState, input: HookInput): string[] {
   const messages: string[] = [];
@@ -233,9 +285,11 @@ export function processHookEvent(state: PetState, input: HookInput): string[] {
         }
       } else if (toolName === 'edit' || toolName === 'write') {
         state.stats.totalEdits++;
+        trackFileStats(state, input);
         messages.push(...awardExp(state, EXP_REWARDS.edit + bonus, 'edit'));
       } else if (toolName === 'read') {
         state.stats.totalReads++;
+        trackFileStats(state, input);
         messages.push(...awardExp(state, EXP_REWARDS.read + bonus, 'read'));
       }
       break;

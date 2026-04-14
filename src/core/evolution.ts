@@ -1,263 +1,210 @@
-import type { PetState, Species, Stage } from './types.js';
+import type { PetState, Species, Stage, LangCategory, CodingStyle } from './types.js';
 
 /** Evolution branch definition */
 export interface EvolutionBranch {
   name: string;
   nameZh: string;
-  condition: (state: PetState) => boolean;
   description: string;
 }
 
-/** Evolution tree: species → stage → branches */
-export const EVOLUTION_TREE: Record<Species, Record<string, EvolutionBranch[]>> = {
+/** Per-species evolution tree */
+export interface SpeciesEvolutionTree {
+  growth: Record<LangCategory, EvolutionBranch>;
+  final: Record<CodingStyle, EvolutionBranch>;
+}
+
+/** Full evolution tree: 6 species × (7 first-evo + 5 second-evo) */
+export const EVOLUTION_TREE: Record<Species, SpeciesEvolutionTree> = {
   bitcat: {
-    growth: [
-      {
-        name: 'shadow_cat',
-        nameZh: '影猫',
-        condition: (s) => editRatio(s) > 0.6,
-        description: 'Born from countless lines of code written in silence',
-      },
-      {
-        name: 'solar_cat',
-        nameZh: '日猫',
-        condition: (s) => bashRatio(s) > 0.6,
-        description: 'Empowered by the blazing speed of shell commands',
-      },
-    ],
-    final: [
-      {
-        name: 'void_cat',
-        nameZh: '虚空猫',
-        condition: (s) => s.bond > 80,
-        description: 'Deep bond transcends the digital realm',
-      },
-      {
-        name: 'storm_cat',
-        nameZh: '雷猫',
-        condition: (s) => avgMood(s) > 70,
-        description: 'Perpetual joy crystallized into lightning',
-      },
-    ],
+    growth: {
+      python:     { name: 'serpent_cat',  nameZh: '蛇语猫', description: 'Speaks the tongue of Python' },
+      frontend:   { name: 'pixel_cat',   nameZh: '像素猫', description: 'Paints interfaces with precision' },
+      backend:    { name: 'iron_cat',    nameZh: '铁猫',   description: 'Hardened by systems-level code' },
+      scripting:  { name: 'script_cat',  nameZh: '脚本猫', description: 'Swift and nimble, automating everything' },
+      docs:       { name: 'scroll_cat',  nameZh: '卷轴猫', description: 'Keeper of knowledge and docs' },
+      ops:        { name: 'deploy_cat',  nameZh: '部署猫', description: 'Guardian of pipelines' },
+      fullstack:  { name: 'shadow_cat',  nameZh: '影猫',   description: 'Master of all trades' },
+    },
+    final: {
+      craftsman:    { name: 'void_cat',    nameZh: '虚空猫', description: 'Meticulous craft transcends digital' },
+      speedster:    { name: 'storm_cat',   nameZh: '雷猫',   description: 'Blazing speed crystallized' },
+      collaborator: { name: 'bond_cat',    nameZh: '羁绊猫', description: 'Woven from threads of teamwork' },
+      nightcoder:   { name: 'phantom_cat', nameZh: '幽灵猫', description: 'Stalks code under moonlight' },
+      scholar:      { name: 'sage_cat',    nameZh: '贤者猫', description: 'Wisdom from deep code reading' },
+    },
   },
   shelldragon: {
-    growth: [
-      {
-        name: 'fire_dragon',
-        nameZh: '焰龙',
-        condition: (s) => bashRatio(s) > 0.6,
-        description: 'Forged in the fires of a thousand shell commands',
-      },
-      {
-        name: 'ice_dragon',
-        nameZh: '冰龙',
-        condition: (s) => readRatio(s) > 0.5,
-        description: 'Cool and methodical, born from careful code reading',
-      },
-    ],
-    final: [
-      {
-        name: 'storm_dragon',
-        nameZh: '雷暴龙',
-        condition: (s) => s.stats.totalBash > 500,
-        description: 'Absolute mastery of the command line',
-      },
-      {
-        name: 'crystal_dragon',
-        nameZh: '晶龙',
-        condition: (s) => s.bond > 80,
-        description: 'Crystallized from unbreakable trust',
-      },
-    ],
+    growth: {
+      python:     { name: 'venom_dragon',  nameZh: '蛇毒龙', description: 'Venomous Python strikes with precision' },
+      frontend:   { name: 'prism_dragon',  nameZh: '棱镜龙', description: 'Refracts light into interfaces' },
+      backend:    { name: 'forge_dragon',  nameZh: '锻造龙', description: 'Hammers raw metal into systems' },
+      scripting:  { name: 'wind_dragon',   nameZh: '疾风龙', description: 'Commands flow like wind' },
+      docs:       { name: 'lore_dragon',   nameZh: '典籍龙', description: 'Guarding sacred scrolls' },
+      ops:        { name: 'siege_dragon',  nameZh: '攻城龙', description: 'Breaches any deployment barrier' },
+      fullstack:  { name: 'fire_dragon',   nameZh: '焰龙',   description: 'All-consuming flame of versatility' },
+    },
+    final: {
+      craftsman:    { name: 'crystal_dragon', nameZh: '晶龙',   description: 'Crystallized perfection' },
+      speedster:    { name: 'storm_dragon',   nameZh: '雷暴龙', description: 'Command-line devastation' },
+      collaborator: { name: 'twin_dragon',    nameZh: '双生龙', description: 'Two heads, united' },
+      nightcoder:   { name: 'abyss_dragon',   nameZh: '深渊龙', description: 'Rises from midnight depths' },
+      scholar:      { name: 'elder_dragon',   nameZh: '太古龙', description: 'Wisdom across ages' },
+    },
   },
   codeslime: {
-    growth: [
-      {
-        name: 'gel_cube',
-        nameZh: '凝胶方块',
-        condition: (s) => s.level >= 16 && editRatio(s) > 0.5,
-        description: 'Structured and organized, code given form',
-      },
-      {
-        name: 'plasma_slime',
-        nameZh: '等离子史莱姆',
-        condition: (s) => s.stats.totalTests > 50,
-        description: 'Energized by the spark of passing tests',
-      },
-    ],
-    final: [
-      {
-        name: 'omega_slime',
-        nameZh: '终极史莱姆',
-        condition: (s) => s.stats.sessionMinutes > 3000,
-        description: 'Evolved through sheer dedication and time',
-      },
-      {
-        name: 'quantum_slime',
-        nameZh: '量子史莱姆',
-        condition: (s) => avgMood(s) > 75,
-        description: 'Exists in superposition of pure happiness',
-      },
-    ],
+    growth: {
+      python:     { name: 'acid_slime',   nameZh: '酸液史莱姆',   description: 'Dissolves problems with elegance' },
+      frontend:   { name: 'gel_cube',      nameZh: '凝胶方块',     description: 'Structured and styled' },
+      backend:    { name: 'metal_slime',   nameZh: '金属史莱姆',   description: 'Hard as steel' },
+      scripting:  { name: 'spark_slime',   nameZh: '电光史莱姆',   description: 'Crackling with energy' },
+      docs:       { name: 'ink_slime',     nameZh: '墨汁史莱姆',   description: 'Absorbs all knowledge' },
+      ops:        { name: 'nano_slime',    nameZh: '纳米史莱姆',   description: 'Infiltrates every container' },
+      fullstack:  { name: 'plasma_slime',  nameZh: '等离子史莱姆', description: 'Adapts to any environment' },
+    },
+    final: {
+      craftsman:    { name: 'omega_slime',   nameZh: '终极史莱姆', description: 'Perfection through dedication' },
+      speedster:    { name: 'quantum_slime', nameZh: '量子史莱姆', description: 'Superposition of output' },
+      collaborator: { name: 'colony_slime',  nameZh: '群体史莱姆', description: 'Many merged through teamwork' },
+      nightcoder:   { name: 'shadow_slime',  nameZh: '暗影史莱姆', description: 'Thrives in darkness' },
+      scholar:      { name: 'archive_slime', nameZh: '典藏史莱姆', description: 'A living library' },
+    },
   },
   gitfox: {
-    growth: [
-      {
-        name: 'branch_fox',
-        nameZh: '分支狐',
-        condition: (s) => s.stats.totalCommits > 30,
-        description: 'Master of branching timelines',
-      },
-      {
-        name: 'merge_fox',
-        nameZh: '合流狐',
-        condition: (s) => s.stats.totalPRs > 10,
-        description: 'Bringing code together in harmony',
-      },
-    ],
-    final: [
-      {
-        name: 'origin_fox',
-        nameZh: '源狐',
-        condition: (s) => s.stats.totalCommits > 100,
-        description: 'The origin of all branches, keeper of history',
-      },
-      {
-        name: 'phantom_fox',
-        nameZh: '幻影狐',
-        condition: (s) => s.stats.loginStreak > 14,
-        description: 'Appears faithfully every day without fail',
-      },
-    ],
+    growth: {
+      python:     { name: 'charm_fox',   nameZh: '蛊惑狐', description: 'Enchants with Python spells' },
+      frontend:   { name: 'mirror_fox',  nameZh: '镜狐',   description: 'Reflects perfect layouts' },
+      backend:    { name: 'steel_fox',   nameZh: '钢狐',   description: 'Tough and reliable' },
+      scripting:  { name: 'swift_fox',   nameZh: '迅狐',   description: 'Faster than any script' },
+      docs:       { name: 'scroll_fox',  nameZh: '书卷狐', description: 'Reads every scroll' },
+      ops:        { name: 'tunnel_fox',  nameZh: '隧道狐', description: 'Burrows through infra' },
+      fullstack:  { name: 'branch_fox',  nameZh: '分支狐', description: 'Master of all paths' },
+    },
+    final: {
+      craftsman:    { name: 'origin_fox',  nameZh: '源狐',   description: 'Origin of well-crafted branches' },
+      speedster:    { name: 'flash_fox',   nameZh: '闪光狐', description: 'Merges at light speed' },
+      collaborator: { name: 'pack_fox',    nameZh: '群狐',   description: 'Leading the pack' },
+      nightcoder:   { name: 'phantom_fox', nameZh: '幻影狐', description: 'Appears under starlight' },
+      scholar:      { name: 'sage_fox',    nameZh: '智慧狐', description: 'Keeper of repo wisdom' },
+    },
   },
   bugowl: {
-    growth: [
-      {
-        name: 'debug_owl',
-        nameZh: '调试枭',
-        condition: (s) => s.stats.totalTests > 50,
-        description: 'Sharp eyes that spot every bug',
-      },
-      {
-        name: 'night_owl',
-        nameZh: '夜枭',
-        condition: (s) => s.stats.sessionMinutes > 1000,
-        description: 'Burns the midnight oil, ever vigilant',
-      },
-    ],
-    final: [
-      {
-        name: 'sage_owl',
-        nameZh: '贤者枭',
-        condition: (s) => s.bond > 80 && s.stats.totalTests > 100,
-        description: 'Wisdom earned through countless test cycles',
-      },
-      {
-        name: 'spectral_owl',
-        nameZh: '幽灵枭',
-        condition: (s) => s.stats.loginStreak > 14,
-        description: 'A silent presence that never leaves your side',
-      },
-    ],
+    growth: {
+      python:     { name: 'serpent_owl',   nameZh: '蛇瞳枭', description: 'Sees every exception' },
+      frontend:   { name: 'prism_owl',     nameZh: '棱镜枭', description: 'Multi-spectral UI vision' },
+      backend:    { name: 'iron_owl',      nameZh: '铁枭',   description: 'Sentinel of stability' },
+      scripting:  { name: 'echo_owl',      nameZh: '回声枭', description: 'Hears every shell echo' },
+      docs:       { name: 'tome_owl',      nameZh: '古书枭', description: 'Perched on documentation' },
+      ops:        { name: 'sentinel_owl',  nameZh: '哨兵枭', description: 'Watches over deployments' },
+      fullstack:  { name: 'debug_owl',     nameZh: '调试枭', description: 'Sharp eyes spot any bug' },
+    },
+    final: {
+      craftsman:    { name: 'sage_owl',     nameZh: '贤者枭', description: 'Test-driven wisdom' },
+      speedster:    { name: 'gale_owl',     nameZh: '烈风枭', description: 'Swoops at breakneck speed' },
+      collaborator: { name: 'chorus_owl',   nameZh: '合唱枭', description: 'Hoots in harmony' },
+      nightcoder:   { name: 'spectral_owl', nameZh: '幽灵枭', description: 'Silent midnight presence' },
+      scholar:      { name: 'oracle_owl',   nameZh: '神谕枭', description: 'Sees truth in code' },
+    },
   },
   pixiebot: {
-    growth: [
-      {
-        name: 'chrome_bot',
-        nameZh: '铬合金机器人',
-        condition: (s) => editRatio(s) > 0.5,
-        description: 'Polished and refined through code crafting',
-      },
-      {
-        name: 'spark_bot',
-        nameZh: '火花机器人',
-        condition: (s) => bashRatio(s) > 0.5,
-        description: 'Crackling with command-line energy',
-      },
-    ],
-    final: [
-      {
-        name: 'quantum_bot',
-        nameZh: '量子机器人',
-        condition: (s) => s.stats.totalEdits > 500,
-        description: 'Computing at the edge of possibility',
-      },
-      {
-        name: 'aurora_bot',
-        nameZh: '极光机器人',
-        condition: (s) => avgMood(s) > 80,
-        description: 'Radiating pure digital bliss',
-      },
-    ],
+    growth: {
+      python:     { name: 'cipher_bot',   nameZh: '密码机器人',     description: 'Encrypts with Python logic' },
+      frontend:   { name: 'chrome_bot',   nameZh: '铬合金机器人',   description: 'Polished for UI perfection' },
+      backend:    { name: 'titan_bot',    nameZh: '泰坦机器人',     description: 'Massive processing power' },
+      scripting:  { name: 'spark_bot',    nameZh: '火花机器人',     description: 'Crackling with energy' },
+      docs:       { name: 'archive_bot',  nameZh: '档案机器人',     description: 'Perfect documentation memory' },
+      ops:        { name: 'drone_bot',    nameZh: '无人机器人',     description: 'Autonomous deployment' },
+      fullstack:  { name: 'alloy_bot',    nameZh: '合金机器人',     description: 'Versatile alloy for any task' },
+    },
+    final: {
+      craftsman:    { name: 'quantum_bot', nameZh: '量子机器人', description: 'Crafted at edge of possibility' },
+      speedster:    { name: 'plasma_bot',  nameZh: '等离子机器人', description: 'Raw speed in plasma circuits' },
+      collaborator: { name: 'network_bot', nameZh: '联网机器人', description: 'Connected to every signal' },
+      nightcoder:   { name: 'aurora_bot',  nameZh: '极光机器人', description: 'Glows brightest in darkness' },
+      scholar:      { name: 'cortex_bot',  nameZh: '皮质机器人', description: 'A brain that never stops' },
+    },
   },
 };
 
-// Helper functions for evolution conditions
-function totalActions(s: PetState): number {
-  return s.stats.totalEdits + s.stats.totalBash + s.stats.totalReads + s.stats.totalCommits + s.stats.totalPRs + s.stats.totalTests;
+// ── Detection helpers ──
+
+/** Get dominant programming language from file edit stats */
+export function getDominantLang(state: PetState): LangCategory {
+  const le = state.stats.langEdits ?? {};
+  const total = Object.values(le).reduce((a, b) => a + b, 0);
+  if (total === 0) return 'fullstack';
+
+  let maxCat = 'fullstack';
+  let maxVal = 0;
+  for (const [cat, count] of Object.entries(le)) {
+    if (count > maxVal) { maxVal = count; maxCat = cat; }
+  }
+
+  // Need at least 30% dominance
+  if (maxVal / total < 0.3) return 'fullstack';
+  return maxCat as LangCategory;
 }
 
-function editRatio(s: PetState): number {
-  const total = totalActions(s);
-  return total === 0 ? 0 : s.stats.totalEdits / total;
+/** Get coding style from habits */
+export function getCodingStyle(state: PetState): CodingStyle {
+  const s = state.stats;
+  const totalActions = s.totalEdits + s.totalBash + s.totalReads;
+
+  // Collaborator: many PRs
+  if (s.totalPRs >= 8) return 'collaborator';
+
+  // Nightcoder: >40% of actions at night
+  const nightRatio = totalActions > 0 ? (s.nightEdits ?? 0) / totalActions : 0;
+  if (nightRatio > 0.4) return 'nightcoder';
+
+  // Scholar: reads >> writes
+  if (s.totalReads > s.totalEdits * 2 && s.totalReads > 20) return 'scholar';
+
+  // Craftsman: high test ratio + frequent commits
+  const testRatio = totalActions > 0 ? s.totalTests / totalActions : 0;
+  const commitDensity = s.totalEdits > 0 ? s.totalCommits / s.totalEdits : 0;
+  if (testRatio > 0.15 && commitDensity > 0.1) return 'craftsman';
+
+  // Speedster: default
+  return 'speedster';
 }
 
-function bashRatio(s: PetState): number {
-  const total = totalActions(s);
-  return total === 0 ? 0 : s.stats.totalBash / total;
-}
-
-function readRatio(s: PetState): number {
-  const total = totalActions(s);
-  return total === 0 ? 0 : s.stats.totalReads / total;
-}
-
-function avgMood(s: PetState): number {
-  const h = s.stats.moodHistory;
-  if (h.length === 0) return s.mood;
-  return h.reduce((a, b) => a + b, 0) / h.length;
-}
+// ── Evolution logic ──
 
 /** Check if pet is ready to evolve, return the branch name or null */
 export function checkEvolution(state: PetState): string | null {
-  const stage = state.stage;
   const tree = EVOLUTION_TREE[state.species];
 
-  // Already at the evolution for this stage?
-  let targetStageKey: string | null = null;
-  if (stage === 'growth' && !state.evolution) {
-    targetStageKey = 'growth';
-  } else if (stage === 'final' && state.evolution && !isFinalEvolution(state)) {
-    targetStageKey = 'final';
+  if (state.stage === 'growth' && !state.evolution) {
+    // 1st evolution: language-based
+    const lang = getDominantLang(state);
+    return tree.growth[lang].name;
   }
 
-  if (!targetStageKey || !tree[targetStageKey]) return null;
-
-  const branches = tree[targetStageKey];
-  for (const branch of branches) {
-    if (branch.condition(state)) {
-      return branch.name;
-    }
+  if (state.stage === 'final' && state.evolution && !isFinalEvolution(state)) {
+    // 2nd evolution: style-based
+    const style = getCodingStyle(state);
+    return tree.final[style].name;
   }
 
-  // Default to first branch if at the right level but no condition met
-  // (fallback so pets always evolve eventually)
-  return branches[0].name;
+  return null;
 }
 
 /** Check if the pet already has a final-stage evolution */
 function isFinalEvolution(state: PetState): boolean {
   const tree = EVOLUTION_TREE[state.species];
-  if (!tree.final) return false;
-  return tree.final.some(b => b.name === state.evolution);
+  return Object.values(tree.final).some(b => b.name === state.evolution);
 }
 
 /** Get evolution info by name */
 export function getEvolutionInfo(species: Species, name: string): EvolutionBranch | null {
   const tree = EVOLUTION_TREE[species];
-  for (const branches of Object.values(tree)) {
-    const found = branches.find(b => b.name === name);
-    if (found) return found;
+  // Search growth branches
+  for (const branch of Object.values(tree.growth)) {
+    if (branch.name === name) return branch;
+  }
+  // Search final branches
+  for (const branch of Object.values(tree.final)) {
+    if (branch.name === name) return branch;
   }
   return null;
 }

@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0] - 2026-04-14
+
+### Changed
+- **Evolution system rewritten**: language + coding style based evolution replaces old stat-ratio system
+  - 1st evolution (Lv.12): based on programming language (Python/Frontend/Backend/Scripting/Docs/Ops/Fullstack)
+  - 2nd evolution (Lv.30): based on coding style (Craftsman/Speedster/Collaborator/Nightcoder/Scholar)
+  - 102 total evolution forms across 6 species (7 first-evo × 5 second-evo per species)
+- **Evolution thresholds adjusted**: Lv.16→12 (1st evo), Lv.41→30 (2nd evo) for faster progression
+- **Language detection**: file extensions from Edit/Write/Read tool_input.file_path are tracked in `stats.langEdits`
+- **Night activity tracking**: operations between 22:00-06:00 tracked in `stats.nightEdits`
+
+### Migration
+- Existing pets without `langEdits`/`nightEdits` auto-migrate (default to empty/0)
+- Pets at Lv.12-15 will evolve as "fullstack" (thematic fallback)
+
 ## [0.5.0] - 2026-04-14
 
 ### Added

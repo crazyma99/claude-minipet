@@ -36,6 +36,12 @@ export interface DNA {
   rarity: Rarity;
 }
 
+/** Language categories for evolution detection */
+export type LangCategory = 'python' | 'frontend' | 'backend' | 'scripting' | 'docs' | 'ops' | 'fullstack';
+
+/** Coding style for 2nd evolution */
+export type CodingStyle = 'craftsman' | 'speedster' | 'collaborator' | 'nightcoder' | 'scholar';
+
 /** Activity statistics for evolution conditions */
 export interface Stats {
   totalEdits: number;
@@ -49,6 +55,8 @@ export interface Stats {
   loginStreak: number;
   lastLoginDate: string; // YYYY-MM-DD
   moodHistory: number[]; // last 7 days average mood
+  langEdits: Record<string, number>;  // language category -> file edit count
+  nightEdits: number;                  // edits between 22:00-06:00
 }
 
 /** The full pet state persisted to disk */
