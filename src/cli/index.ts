@@ -85,7 +85,7 @@ async function initPet() {
   console.log(`  ${BOLD}🐾 欢迎使用 Claude MiniPet!${RESET}`);
   console.log('');
 
-  // ===== Step 1: Login (if not already) =====
+  // ===== Step 1: Login (required) =====
   let auth = loadAuth();
   if (!auth) {
     console.log('  首先，让我们创建你的账号。');
@@ -93,8 +93,7 @@ async function initPet() {
 
     const email = await prompt('  📧 请输入你的邮箱: ');
     if (!email || !email.includes('@')) {
-      console.log('  ❌ 邮箱格式不正确');
-      createLocalPet();
+      console.log('  ❌ 邮箱格式不正确，请重新运行 claude-minipet init');
       return;
     }
 
@@ -102,29 +101,45 @@ async function initPet() {
     const sendResult = await sendCode(DEFAULT_SERVER, email);
     if (!sendResult.ok) {
       console.log(`  ❌ ${sendResult.error ?? '无法连接服务器'}`);
-      console.log('  将以离线模式运行，稍后可用 claude-minipet login 登录');
-      createLocalPet();
+      console.log('  请检查网络后重新运行 claude-minipet init');
       return;
     }
     console.log('  ✅ 验证码已发送到你的邮箱');
     console.log('');
 
-    const code = await prompt('  🔑 请输入验证码: ');
-    if (!code) {
-      console.log('  已跳过登录');
-      createLocalPet();
-      return;
+    // Verification loop with resend support
+    let verified = false;
+    let verifyResult: { ok: boolean; token?: string; userId?: number; error?: string } = { ok: false };
+
+    while (!verified) {
+      const input = await prompt('  🔑 请输入验证码 (输入 r 重新发送): ');
+      if (!input) {
+        console.log('  ❌ 必须输入验证码才能继续，请重新运行 claude-minipet init');
+        return;
+      }
+
+      if (input.toLowerCase() === 'r') {
+        console.log('  📤 重新发送验证码...');
+        const resend = await sendCode(DEFAULT_SERVER, email);
+        if (!resend.ok) {
+          console.log(`  ⚠️  ${resend.error ?? '发送失败，请稍后重试'}`);
+        } else {
+          console.log('  ✅ 新验证码已发送');
+        }
+        continue;
+      }
+
+      verifyResult = await verifyCode(DEFAULT_SERVER, email, input);
+      if (verifyResult.ok && verifyResult.token) {
+        verified = true;
+      } else {
+        console.log(`  ❌ ${verifyResult.error ?? '验证码错误'}，请重试`);
+      }
     }
 
-    const verifyResult = await verifyCode(DEFAULT_SERVER, email, code);
-    if (!verifyResult.ok || !verifyResult.token) {
-      console.log(`  ❌ ${verifyResult.error ?? '验证失败'}`);
-      console.log('  将以离线模式运行，稍后可用 claude-minipet login 重试');
-      createLocalPet();
-      return;
-    }
+    if (!verifyResult.token) return;
 
-    saveAuth({ token: verifyResult.token, email, userId: verifyResult.userId!, serverUrl: DEFAULT_SERVER });
+    saveAuth({ token: verifyResult.token!, email, userId: verifyResult.userId!, serverUrl: DEFAULT_SERVER });
     auth = loadAuth();
     console.log(`  ✅ 登录成功! (${email})`);
     console.log('');
@@ -136,29 +151,19 @@ async function initPet() {
   const existing = loadState();
   if (existing) {
     console.log(`  🐾 宠物已存在: ${existing.name} (${SPECIES_NAMES[existing.species].zh})`);
-    if (auth) {
-      await syncPetToServer(existing);
-      console.log('  ☁️  数据已同步到云端');
-    }
+    await syncPetToServer(existing);
+    console.log('  ☁️  数据已同步到云端');
   } else {
     // Try cloud restore first
-    let state = null;
-    if (auth) {
-      console.log('  ☁️  检查云端数据...');
-      state = await fetchPetFromServer();
-      if (state) {
-        saveState(state);
-        console.log(`  ✅ 从云端恢复了你的宠物: ${state.name}!`);
-      }
-    }
-
-    // No cloud data — create new pet
-    if (!state) {
+    console.log('  ☁️  检查云端数据...');
+    let state = await fetchPetFromServer();
+    if (state) {
+      saveState(state);
+      console.log(`  ✅ 从云端恢复了你的宠物: ${state.name}!`);
+    } else {
       state = createNewPet();
-      if (auth) {
-        await syncPetToServer(state);
-        console.log('  ☁️  宠物数据已上传到云端');
-      }
+      await syncPetToServer(state);
+      console.log('  ☁️  宠物数据已上传到云端');
     }
   }
 
@@ -190,13 +195,13 @@ function createNewPet() {
   return state;
 }
 
-/** Create pet without login (offline mode) */
-function createLocalPet() {
-  const existing = loadState();
-  if (!existing) {
-    createNewPet();
+/** Check auth, exit if not logged in */
+function requireAuth(): boolean {
+  if (!loadAuth()) {
+    console.log('  ❌ 未登录。请先运行: claude-minipet init');
+    return false;
   }
-  finishSetup();
+  return true;
 }
 
 /** Install hooks, start daemon */
@@ -226,6 +231,7 @@ async function finishSetup() {
 }
 
 function showStatus() {
+  if (!requireAuth()) return;
   const state = loadState();
   if (!state) {
     console.log('还没有宠物。运行 claude-minipet init 创建一只!');
@@ -269,6 +275,7 @@ function showStatusLine() {
 }
 
 function doFeed() {
+  if (!requireAuth()) return;
   const state = loadState();
   if (!state) {
     console.log('还没有宠物。运行 claude-minipet init 创建一只!');
@@ -281,6 +288,7 @@ function doFeed() {
 }
 
 function doPat() {
+  if (!requireAuth()) return;
   const state = loadState();
   if (!state) {
     console.log('还没有宠物。运行 claude-minipet init 创建一只!');
@@ -294,6 +302,7 @@ function doPat() {
 }
 
 function doRename(newName: string) {
+  if (!requireAuth()) return;
   const state = loadState();
   if (!state) {
     console.log('还没有宠物。运行 claude-minipet init 创建一只!');

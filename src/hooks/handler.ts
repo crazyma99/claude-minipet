@@ -8,11 +8,10 @@ import type { HookInput } from '../core/types.js';
 
 /** Main hook handler - reads stdin JSON, processes event, outputs response */
 export async function handleHook(): Promise<void> {
+  // Require both auth and pet state
+  if (!loadAuth()) process.exit(0);
   const state = loadState();
-  if (!state) {
-    // No pet initialized yet, silently exit
-    process.exit(0);
-  }
+  if (!state) process.exit(0);
 
   // Read stdin
   const chunks: Buffer[] = [];
