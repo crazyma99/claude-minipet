@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.1] - 2026-04-14
+
+### Added
+- **Auto CLAUDE.md injection**: `claude-minipet init` now writes pet knowledge to `~/.claude/CLAUDE.md`, so Claude Code knows pet commands in all new sessions
+- Uninstall cleanly removes the injected block without affecting user content
+
 ## [0.4.0] - 2026-04-14
 
 ### Changed
