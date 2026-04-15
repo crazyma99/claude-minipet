@@ -108,6 +108,7 @@ Your current pet will be replaced with a new Lv.1 pet. Codes are generated and d
 - **☁️ Cloud Sync** — Email login, auto-sync, cross-device support
 - **💬 Speech Bubble** — Real-time bubble showing work status, comments, and easter eggs
 - **🧠 AI-Aware** — Auto-recognized in new sessions, say "feed my pet" and it just works
+- **💓 Heartbeat** — Client sends heartbeat every 60s, server tracks online status and client version
 
 ## Speech Bubble
 

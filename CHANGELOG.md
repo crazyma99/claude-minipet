@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0] - 2026-04-15
+
+### Added
+- **Heartbeat system**: daemon sends heartbeat to server every 60 seconds with client version
+- **Server-side online tracking**: server records last heartbeat per user, admin dashboard shows online/offline status
+- **Version check**: server compares client version on heartbeat, notifies outdated clients via speech bubble
+- **Admin dashboard**: new "在线" stat card, user list shows online status (🟢/○), client version, last heartbeat time
+
 ## [0.6.1] - 2026-04-14
 
 ### Added

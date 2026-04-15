@@ -1,10 +1,21 @@
 import { loadState, saveState } from '../core/pet.js';
 import { checkEvolution, applyEvolution } from '../core/evolution.js';
 import { triggerAnim } from '../render/anim-state.js';
-import { syncPetToServer, loadAuth } from '../core/sync.js';
+import { syncPetToServer, sendHeartbeat, loadAuth } from '../core/sync.js';
+import { saveSyncStatus } from '../core/sync-status.js';
+import { saveBubble } from '../render/bubble.js';
 import { writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const PKG_VERSION: string = (() => {
+  try {
+    const pkg = require('../../package.json');
+    return pkg.version ?? 'unknown';
+  } catch { return 'unknown'; }
+})();
 
 const PID_FILE = join(homedir(), '.claude-minipet', 'daemon.pid');
 const DECAY_INTERVAL_MS = 60 * 1000; // Check every minute
@@ -79,9 +90,16 @@ function applyDecay(): void {
 
   saveState(state);
 
-  // Sync to server if logged in
+  // Sync + heartbeat to server if logged in
   if (loadAuth()) {
-    syncPetToServer(state).catch(() => {});
+    syncPetToServer(state)
+      .then(ok => saveSyncStatus(ok))
+      .catch(() => saveSyncStatus(false, 'sync failed'));
+    sendHeartbeat(PKG_VERSION).then(hb => {
+      if (hb.needsUpdate && hb.message) {
+        saveBubble(hb.message);
+      }
+    }).catch(() => {});
   }
 }
 

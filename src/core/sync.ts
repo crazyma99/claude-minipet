@@ -65,6 +65,20 @@ export async function syncPetToServer(state: PetState): Promise<boolean> {
   return result?.ok ?? false;
 }
 
+/** Heartbeat response from server */
+export interface HeartbeatResponse {
+  ok: boolean;
+  latestVersion?: string;
+  needsUpdate?: boolean;
+  message?: string;
+}
+
+/** Send heartbeat to server */
+export async function sendHeartbeat(version: string): Promise<HeartbeatResponse> {
+  const result = await apiRequest('POST', '/heartbeat', { version });
+  return result ?? { ok: false };
+}
+
 /** Fetch pet state from server */
 export async function fetchPetFromServer(): Promise<PetState | null> {
   const result = await apiRequest('GET', '/pets');
