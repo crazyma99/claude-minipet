@@ -9,6 +9,13 @@ import { loadAnimState } from './anim-state.js';
 import { loadAuth } from '../core/sync.js';
 import { loadSyncStatus } from '../core/sync-status.js';
 import { getStatusBubble, renderBubble } from './bubble.js';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const PKG_VERSION: string = (() => {
+  try { return require('../../package.json').version ?? '?'; }
+  catch { return '?'; }
+})();
 
 /** Render the full status line output */
 export function renderStatusLine(state: PetState): string {
@@ -161,7 +168,16 @@ export function renderStatusLine(state: PetState): string {
   }
 
   const emailDisplay = auth ? ` ${fg(dimColor)}${auth.email}${RESET}` : '';
-  output.push(`${statusDot} ${statusText}${emailDisplay}`);
+  const versionStr = ` ${fg(dimColor)}v${PKG_VERSION}${RESET}`;
+
+  // Update hint if newer version available
+  let updateHint = '';
+  if (syncStatus?.needsUpdate && syncStatus.latestVersion) {
+    const warnColor: Color = { r: 255, g: 180, b: 50 };
+    updateHint = `\n${fg(warnColor)}>> 新版本 v${syncStatus.latestVersion} 可用${RESET} ${fg(dimColor)}运行: ! npm install -g claude-minipet@latest${RESET}`;
+  }
+
+  output.push(`${statusDot} ${statusText}${versionStr}${emailDisplay}${updateHint}`);
 
   return output.join('\n');
 }

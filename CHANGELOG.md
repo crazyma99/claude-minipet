@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.1] - 2026-04-15
+
+### Added
+- **Version display**: status line shows current version (e.g. `v0.7.1`)
+- **Update notification**: yellow hint when newer version available with install command
+- **Auto daemon restart**: postinstall automatically restarts daemon after npm upgrade
+
 ## [0.7.0] - 2026-04-15
 
 ### Added

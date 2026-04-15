@@ -92,14 +92,19 @@ function applyDecay(): void {
 
   // Sync + heartbeat to server if logged in
   if (loadAuth()) {
-    syncPetToServer(state)
-      .then(ok => saveSyncStatus(ok))
-      .catch(() => saveSyncStatus(false, 'sync failed'));
     sendHeartbeat(PKG_VERSION).then(hb => {
       if (hb.needsUpdate && hb.message) {
         saveBubble(hb.message);
       }
-    }).catch(() => {});
+      // Save sync status with version info from heartbeat
+      syncPetToServer(state)
+        .then(ok => saveSyncStatus(ok, undefined, hb.latestVersion, hb.needsUpdate))
+        .catch(() => saveSyncStatus(false, 'sync failed', hb.latestVersion, hb.needsUpdate));
+    }).catch(() => {
+      syncPetToServer(state)
+        .then(ok => saveSyncStatus(ok))
+        .catch(() => saveSyncStatus(false, 'sync failed'));
+    });
   }
 }
 

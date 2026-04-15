@@ -8,14 +8,18 @@ export interface SyncStatus {
   connected: boolean;
   lastSyncTime: string;  // ISO timestamp
   lastError?: string;
+  latestVersion?: string;
+  needsUpdate?: boolean;
 }
 
 /** Save sync status after each sync attempt */
-export function saveSyncStatus(connected: boolean, error?: string): void {
+export function saveSyncStatus(connected: boolean, error?: string, latestVersion?: string, needsUpdate?: boolean): void {
   const data: SyncStatus = {
     connected,
     lastSyncTime: new Date().toISOString(),
     lastError: error,
+    latestVersion,
+    needsUpdate,
   };
   try {
     writeFileSync(SYNC_STATUS_FILE, JSON.stringify(data), 'utf-8');
