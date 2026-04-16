@@ -1,19 +1,16 @@
-// 2026-04-16 Eric: 宠物配对孵化功能
-// 用户 LV8+ 可用好友 DNA 码链进行同品种配对孵化，生成全新宠物
-
 import { loadState, saveState, createPet } from '../core/pet.js';
 import { parseDNA } from '../core/dna.js';
 import { getRarityDisplay, RARITY_INFO } from '../core/rarity.js';
 import { SPECIES_NAMES } from '../render/sprites.js';
 import { fg, RESET, BOLD } from '../render/pixel.js';
-import { loadAuth } from '../core/sync.js';  // 2026-04-16 Eric: 服务端冷却校验需要认证信息
+import { loadAuth } from '../core/sync.js';
 import type { Rarity } from '../core/types.js';
 import { createInterface } from 'node:readline';
 import { randomBytes } from 'node:crypto';
 
 const HATCH_MIN_LEVEL = 8;
 
-// 2026-04-16 Eric: 稀有度 → DNA 末字节映射，确保 parseDNA 结果与 hatchedRarity 一致
+//稀有度 → DNA 末字节映射，确保 parseDNA 结果与 hatchedRarity 一致
 const RARITY_BYTE: Record<Rarity, number> = {
   shiny:     0x01,
   legendary: 0x08,
@@ -22,7 +19,7 @@ const RARITY_BYTE: Record<Rarity, number> = {
   common:    0x80,
 };
 
-// 2026-04-16 Eric: 服务端孵化冷却校验（72h），防止无限刷宠
+//服务端孵化冷却校验（72h），防止无限刷宠
 interface HatchCooldownResult {
   ok: boolean;
   cooldown?: boolean;
@@ -66,7 +63,7 @@ const HATCH_RARITY_TABLE: { rarity: Rarity; weight: number }[] = [
   { rarity: 'shiny',     weight: 1 },
 ];
 
-// 2026-04-16 Eric: 用 crypto.randomBytes 生成真随机 DNA，末字节编码指定稀有度
+//用 crypto.randomBytes 生成真随机 DNA，末字节编码指定稀有度
 function generateHatchDNA(rarity: Rarity): string {
   const bytes = randomBytes(8);
   bytes[7] = RARITY_BYTE[rarity];  // 末字节对齐 determineRarity 区间
@@ -148,7 +145,7 @@ export async function doHatch(friendCode?: string): Promise<void> {
     return;
   }
 
-  // 2026-04-16 Eric: 阻止自我配对
+  //阻止自我配对
   if (friendCode === state.dna) {
     console.log('  \u274C 不能和自己的宠物配对，请使用好友的 DNA 码链');
     return;
@@ -168,7 +165,7 @@ export async function doHatch(friendCode?: string): Promise<void> {
     return;
   }
 
-  // 2026-04-16 Eric: 服务端冷却校验（72h）
+  //服务端冷却校验（72h）
   console.log('');
   console.log('  \u23F3 正在校验孵化冷却...');
   const cooldownResult = await checkHatchCooldown(friendCode);
@@ -185,7 +182,7 @@ export async function doHatch(friendCode?: string): Promise<void> {
   console.log(`  \u{1F95A} 配对成功！${myName.zh} \u00D7 ${myName.zh} 开始孵化...`);
   await showHatchProgress();
 
-  // 2026-04-16 Eric: 随机稀有度 + 真随机 DNA（末字节编码稀有度，保证一致性）
+  //随机稀有度 + 真随机 DNA（末字节编码稀有度，保证一致性）
   const hatchedRarity = rollHatchRarity();
   const newDNAString = generateHatchDNA(hatchedRarity);
   const newDNA = parseDNA(newDNAString);
