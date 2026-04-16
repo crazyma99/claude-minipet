@@ -2,7 +2,7 @@ import { loadState, saveState, createPet } from '../core/pet.js';
 import { parseDNA } from '../core/dna.js';
 import { getRarityDisplay, RARITY_INFO } from '../core/rarity.js';
 import { SPECIES_NAMES } from '../render/sprites.js';
-import { fg, RESET, BOLD } from '../render/pixel.js';
+import { fg, RESET, BOLD, visibleLength } from '../render/pixel.js';
 import { loadAuth } from '../core/sync.js';
 import type { Rarity } from '../core/types.js';
 import { createInterface } from 'node:readline';
@@ -97,19 +97,31 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-/** 显示孵化进度条（25 步 × 400ms = 10 秒，比升级动画慢） */
+/** 显示孵化进度条（25 步 × 400ms = 10 秒，比升级动画慢），支持 Ctrl+C 中断 */
 async function showHatchProgress(): Promise<void> {
   const steps = 25;
   const delay = 400;
+  let aborted = false;
+  const onSigint = () => { aborted = true; };
+  process.on('SIGINT', onSigint);
   console.log('');
-  for (let i = 0; i <= steps; i++) {
-    const filled = '\u2593'.repeat(i);
-    const empty = '\u2591'.repeat(steps - i);
-    const percent = Math.round((i / steps) * 100);
-    process.stdout.write(`\r  \u{1F95A} 孵化中 [${filled}${empty}] ${percent}%`);
-    await sleep(delay);
+  try {
+    for (let i = 0; i <= steps; i++) {
+      if (aborted) break;
+      const filled = '\u2588'.repeat(i);
+      const empty = '\u2591'.repeat(steps - i);
+      const percent = Math.round((i / steps) * 100);
+      process.stdout.write(`\r  \u{1F95A} 孵化中 [${filled}${empty}] ${percent}%`);
+      if (i < steps) await sleep(delay);
+    }
+    console.log('');
+  } finally {
+    process.removeListener('SIGINT', onSigint);
   }
-  console.log('');
+  if (aborted) {
+    console.log('  已取消孵化');
+    process.exit(0);
+  }
 }
 
 /** 配对孵化主入口 */
@@ -188,18 +200,25 @@ export async function doHatch(friendCode?: string): Promise<void> {
   const newDNA = parseDNA(newDNAString);
   const rarityInfo = RARITY_INFO[hatchedRarity];
   const rc = fg(rarityInfo.color);
-  const childName = `${state.name}之子`;
+  const baseName = state.name.replace(/(之子)+$/, '');
+  const childName = `${baseName}之子`;
   const newPet = createPet(childName, mySpecies, newDNAString, hatchedRarity);
 
-  // 展示新宠物
+  // 展示新宠物（用 visibleLength 计算真实列宽，正确对齐中文/emoji）
+  const BOX_W = 40;
+  const pad = (text: string) => {
+    const gap = BOX_W - 2 - visibleLength(text);
+    return text + ' '.repeat(Math.max(0, gap));
+  };
+
   console.log(`  \u2728 孵化完成！`);
   console.log('');
-  console.log(`  \u2554${'═'.repeat(38)}\u2557`);
-  console.log(`  \u2551  \u{1F423} ${BOLD}新宠物诞生！${RESET}${' '.repeat(20)}\u2551`);
-  console.log(`  \u2551  品种: ${fg(newDNA.primaryColor)}${BOLD}${myName.zh}${RESET} (${myName.en})${' '.repeat(Math.max(0, 20 - myName.zh.length - myName.en.length))}\u2551`);
-  console.log(`  \u2551  稀有度: ${rc}${getRarityDisplay(hatchedRarity, 'zh')}${RESET}${' '.repeat(Math.max(0, 22 - getRarityDisplay(hatchedRarity, 'zh').length))}\u2551`);
-  console.log(`  \u2551  \u{1F9EC} DNA: ${newDNA.raw}${' '.repeat(Math.max(0, 15 - newDNA.raw.length + 23))}\u2551`);
-  console.log(`  \u255A${'═'.repeat(38)}\u255D`);
+  console.log(`  \u2554${'═'.repeat(BOX_W)}\u2557`);
+  console.log(`  \u2551${pad(`  \u{1F423} ${BOLD}新宠物诞生！${RESET}`)}\u2551`);
+  console.log(`  \u2551${pad(`  品种: ${fg(newDNA.primaryColor)}${BOLD}${myName.zh}${RESET} (${myName.en})`)}\u2551`);
+  console.log(`  \u2551${pad(`  稀有度: ${rc}${getRarityDisplay(hatchedRarity, 'zh')}${RESET}`)}\u2551`);
+  console.log(`  \u2551${pad(`  \u{1F9EC} DNA: ${newDNA.raw}`)}\u2551`);
+  console.log(`  \u255A${'═'.repeat(BOX_W)}\u255D`);
   console.log('');
 
   // 询问是否替换
