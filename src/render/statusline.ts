@@ -146,25 +146,32 @@ export function renderStatusLine(state: PetState): string {
   let statusDot: string;
   let statusText: string;
 
+  const FRESH_TTL_MS = 90 * 1000;   // 90s — daemon tick (60s) + buffer
+  const STALE_TTL_MS = 180 * 1000;  // 180s — daemon probably offline
+
   if (!auth) {
     statusDot = `${fg(redDot)}●${RESET}`;
     statusText = `${fg(dimColor)}未登录${RESET}`;
   } else if (!syncStatus) {
     statusDot = `${fg(yellowDot)}●${RESET}`;
     statusText = `${fg(dimColor)}等待同步${RESET}`;
-  } else if (syncStatus.connected) {
-    // Check if sync is recent (within 5 min)
-    const age = Date.now() - new Date(syncStatus.lastSyncTime).getTime();
-    if (age < 5 * 60 * 1000) {
+  } else {
+    // lastAttemptTime is filled by loadSyncStatus even for old format files
+    const timeField = syncStatus.lastAttemptTime ?? syncStatus.lastSyncTime;
+    const age = Date.now() - new Date(timeField).getTime();
+
+    if (age > STALE_TTL_MS) {
+      // Daemon hasn't written in 3+ minutes — likely offline
+      statusDot = `${fg(yellowDot)}●${RESET}`;
+      statusText = `${fg(dimColor)}守护进程离线${RESET}`;
+    } else if (syncStatus.connected) {
       statusDot = `${fg(greenDot)}●${RESET}`;
       statusText = `${fg(dimColor)}已连接${RESET}`;
     } else {
-      statusDot = `${fg(yellowDot)}●${RESET}`;
-      statusText = `${fg(dimColor)}同步中断${RESET}`;
+      // connected===false means >=3 consecutive failures
+      statusDot = `${fg(redDot)}●${RESET}`;
+      statusText = `${fg(dimColor)}连接失败${RESET}`;
     }
-  } else {
-    statusDot = `${fg(redDot)}●${RESET}`;
-    statusText = `${fg(dimColor)}连接失败${RESET}`;
   }
 
   const emailDisplay = auth ? ` ${fg(dimColor)}${auth.email}${RESET}` : '';

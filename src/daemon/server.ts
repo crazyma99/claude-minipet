@@ -2,12 +2,13 @@ import { loadState, saveState } from '../core/pet.js';
 import { checkEvolution, applyEvolution } from '../core/evolution.js';
 import { triggerAnim } from '../render/anim-state.js';
 import { syncPetToServer, sendHeartbeat, loadAuth } from '../core/sync.js';
-import { saveSyncStatus } from '../core/sync-status.js';
+import { loadSyncStatus, saveSyncStatus, consumeSyncEvents, computeConnectionStatus } from '../core/sync-status.js';
 import { saveBubble } from '../render/bubble.js';
-import { writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { writeFileSync, readFileSync, existsSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { createRequire } from 'node:module';
+import type { PetState } from '../core/types.js';
 
 const require = createRequire(import.meta.url);
 const PKG_VERSION: string = (() => {
@@ -56,6 +57,9 @@ function applyDecay(): void {
   const state = loadState();
   if (!state) return;
 
+  // Always sync (consume events + heartbeat) regardless of decay timing
+  syncTick(state);
+
   const now = Date.now();
   const lastInteraction = new Date(state.lastInteraction).getTime();
   const minutesSinceInteraction = (now - lastInteraction) / 60000;
@@ -89,31 +93,52 @@ function applyDecay(): void {
   }
 
   saveState(state);
+}
 
-  // Sync + heartbeat to server if logged in
+// In-memory sync status — daemon is the single writer, no need to read from disk on every async callback
+let currentSyncStatus: import('../core/sync-status.js').SyncStatus | null = null;
+
+function updateAndSaveStatus(
+  results: Array<{ ok: boolean; error?: string }>,
+  versionInfo?: { latestVersion?: string; needsUpdate?: boolean },
+): void {
+  currentSyncStatus = computeConnectionStatus(currentSyncStatus, results, versionInfo);
+  saveSyncStatus(currentSyncStatus);
+}
+
+/** Consume event inbox + sync to server (runs every tick regardless of decay) */
+function syncTick(state: PetState): void {
+  // Initialize from disk on first tick
+  if (currentSyncStatus === null) {
+    currentSyncStatus = loadSyncStatus();
+  }
+
+  const hookEvents = consumeSyncEvents();
+  const hookResults = hookEvents.map(e => ({ ok: e.ok, error: e.error }));
+
   if (loadAuth()) {
     sendHeartbeat(PKG_VERSION).then(hb => {
       if (hb.needsUpdate && hb.message) {
         saveBubble(hb.message);
       }
-      // Save sync status with version info from heartbeat
+      const versionInfo = { latestVersion: hb.latestVersion, needsUpdate: hb.needsUpdate };
       syncPetToServer(state, PKG_VERSION)
-        .then(ok => saveSyncStatus(ok, undefined, hb.latestVersion, hb.needsUpdate))
-        .catch(() => saveSyncStatus(false, 'sync failed', hb.latestVersion, hb.needsUpdate));
+        .then(ok => updateAndSaveStatus([...hookResults, { ok }], versionInfo))
+        .catch(() => updateAndSaveStatus([...hookResults, { ok: false, error: 'daemon sync failed' }], versionInfo));
     }).catch(() => {
       syncPetToServer(state, PKG_VERSION)
-        .then(ok => saveSyncStatus(ok))
-        .catch(() => saveSyncStatus(false, 'sync failed'));
+        .then(ok => updateAndSaveStatus([...hookResults, { ok }]))
+        .catch(() => updateAndSaveStatus([...hookResults, { ok: false, error: 'sync failed' }]));
     });
+  } else if (hookResults.length > 0) {
+    updateAndSaveStatus(hookResults);
   }
 }
 
 /** Start the daemon loop */
 export function startDaemon(): void {
-  if (isDaemonRunning()) {
-    console.log('Daemon is already running.');
-    process.exit(0);
-  }
+  // Kill ALL existing minipet daemon processes (not just the PID file one)
+  killAllDaemons();
 
   writePid();
 
@@ -134,10 +159,7 @@ export function startDaemon(): void {
   // Handle graceful shutdown
   const cleanup = () => {
     clearInterval(interval);
-    try {
-      const { unlinkSync } = require('node:fs');
-      unlinkSync(PID_FILE);
-    } catch { /* ignore */ }
+    try { unlinkSync(PID_FILE); } catch { /* ignore */ }
     process.exit(0);
   };
 
@@ -148,6 +170,52 @@ export function startDaemon(): void {
   process.stdin.resume();
 }
 
+/** Kill ALL minipet daemon processes and wait until none remain */
+function killAllDaemons(): void {
+  const { execSync } = require('node:child_process');
+  const myPid = process.pid;
+
+  const findAndKill = () => {
+    try {
+      // Find all minipet daemon processes except ourselves
+      const out = execSync("ps ax -o pid,command | grep 'minipet daemon start' | grep -v grep", {
+        encoding: 'utf-8',
+        timeout: 5000,
+      }).trim();
+      if (!out) return 0;
+      let killed = 0;
+      for (const line of out.split('\n')) {
+        const pid = parseInt(line.trim());
+        if (!pid || pid === myPid) continue;
+        try { process.kill(pid, 'SIGTERM'); killed++; } catch { /* already dead */ }
+      }
+      return killed;
+    } catch { return 0; } // grep exits 1 when no match
+  };
+
+  findAndKill();
+
+  // Wait up to 5 seconds for all to die
+  for (let i = 0; i < 50; i++) {
+    try {
+      const out = execSync("ps ax -o pid,command | grep 'minipet daemon start' | grep -v grep", {
+        encoding: 'utf-8',
+        timeout: 5000,
+      }).trim();
+      // Filter out ourselves
+      const others = out.split('\n').filter((l: string) => {
+        const pid = parseInt(l.trim());
+        return pid && pid !== myPid;
+      });
+      if (others.length === 0) break;
+    } catch { break; } // no matches = all dead
+    execSync('sleep 0.1', { stdio: 'ignore' });
+  }
+
+  // Clean up PID file
+  try { unlinkSync(PID_FILE); } catch { /* ignore */ }
+}
+
 /** Stop the daemon */
 export function stopDaemon(): boolean {
   const pid = getDaemonPid();
@@ -155,16 +223,7 @@ export function stopDaemon(): boolean {
     console.log('No daemon running.');
     return false;
   }
-  try {
-    process.kill(pid, 'SIGTERM');
-    console.log(`Daemon stopped (PID: ${pid})`);
-    return true;
-  } catch {
-    console.log('Daemon process not found, cleaning up PID file.');
-    try {
-      const { unlinkSync } = require('node:fs');
-      unlinkSync(PID_FILE);
-    } catch { /* ignore */ }
-    return false;
-  }
+  killAllDaemons();
+  console.log('Daemon stopped.');
+  return true;
 }
