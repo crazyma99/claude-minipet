@@ -88,6 +88,7 @@ export interface PetConfig {
   language: 'zh' | 'en';
   animationsEnabled: boolean;
   statusLineRows: number;
+  desktopPetUrl?: string;    // minipet-overlay 地址，如 'http://localhost:3210'
 }
 
 /** Hook event types from Claude Code */

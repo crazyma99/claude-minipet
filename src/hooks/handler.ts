@@ -1,4 +1,4 @@
-import { loadState, saveState, processHookEvent } from '../core/pet.js';
+import { loadState, saveState, processHookEvent, loadConfig } from '../core/pet.js';
 import { checkEvolution, applyEvolution, getEvolutionInfo } from '../core/evolution.js';
 import { RARITY_INFO } from '../core/rarity.js';
 import { evolutionAnimation, levelUpNotification, stageUpNotification, greetingMessage } from '../render/animation.js';
@@ -7,6 +7,7 @@ import { syncPetToServer, loadAuth } from '../core/sync.js';
 import { writeSyncEvent, loadSyncStatus } from '../core/sync-status.js';
 import { generateCodeComment, reactToCodeQuality, checkEasterEgg } from '../core/comments.js';
 import { saveBubble, setBubbleCoding, setBubbleDone } from '../render/bubble.js';
+import { pushToOverlay } from '../core/overlay.js';
 import type { HookInput } from '../core/types.js';
 import { createRequire } from 'node:module';
 
@@ -22,6 +23,11 @@ export async function handleHook(): Promise<void> {
   if (!loadAuth()) process.exit(0);
   const state = loadState();
   if (!state) process.exit(0);
+
+  // Read config once for the entire handler
+  const config = loadConfig();
+  const overlayUrl = config.desktopPetUrl;
+  const push = (event: Parameters<typeof pushToOverlay>[1]) => pushToOverlay(overlayUrl, event);
 
   // Read stdin
   const chunks: Buffer[] = [];
@@ -40,8 +46,12 @@ export async function handleHook(): Promise<void> {
   // Set bubble mode based on Claude's work state
   if (input.hook_event_name === 'UserPromptSubmit' || input.hook_event_name === 'PostToolUse') {
     setBubbleCoding();
+    if (input.hook_event_name === 'UserPromptSubmit') {
+      push({ type: 'coding_start', petState: 'moving' });
+    }
   } else if (input.hook_event_name === 'Stop') {
     setBubbleDone();
+    push({ type: 'coding_done', petState: 'happy' });
   }
 
   // Process the event
@@ -52,6 +62,11 @@ export async function handleHook(): Promise<void> {
   if (moodReaction.moodDelta !== 0) {
     state.mood = Math.max(0, Math.min(100, state.mood + moodReaction.moodDelta));
     saveState(state);
+    if (moodReaction.moodDelta > 0) {
+      push({ type: 'mood_up', mood: state.mood, petState: 'happy' });
+    } else if (state.mood < 30) {
+      push({ type: 'mood_low', mood: state.mood, petState: 'cute' });
+    }
   }
   if (moodReaction.anim) {
     triggerAnim(moodReaction.anim);
@@ -72,6 +87,7 @@ export async function handleHook(): Promise<void> {
     triggerAnim('exp');
   } else if (input.hook_event_name === 'SessionStart') {
     triggerAnim('pat'); // greeting animation
+    push({ type: 'session_start', petState: 'waving' });
   }
 
   // Build output
@@ -95,12 +111,14 @@ export async function handleHook(): Promise<void> {
       systemMessages.push(levelUpNotification(state.name, level, color));
       saveBubble(`🎉 升级了！Lv.${level}！`);
       triggerAnim('levelup');
+      push({ type: 'level_up', level, petState: 'happy' });
     } else if (msg.startsWith('stage_up:')) {
       const stage = msg.split(':')[1];
       const color = RARITY_INFO[state.rarity].color;
       systemMessages.push(stageUpNotification(state.name, stage, color));
       saveBubble(`✨ 进化了！进入${stage === 'growth' ? '成长期' : '最终形态'}！`);
       triggerAnim('levelup');
+      push({ type: 'stage_up', petState: 'happy' });
     } else if (msg.startsWith('evolution:')) {
       const evoName = msg.split(':')[1];
       const evo = getEvolutionInfo(state.species, evoName);
@@ -109,6 +127,7 @@ export async function handleHook(): Promise<void> {
         const fromName = state.species;
         systemMessages.push(evolutionAnimation(state.name, fromName, evo.name, evo.nameZh, color));
         saveBubble(`🧬 进化为 ${evo.nameZh}！`);
+        push({ type: 'evolution', petState: 'happy' });
         // Clear pending evolution after showing
         state.pendingEvolution = null;
         saveState(state);
@@ -121,6 +140,7 @@ export async function handleHook(): Promise<void> {
   if (egg) {
     systemMessages.push(egg);
     saveBubble(egg);
+    push({ type: 'easter_egg', petState: 'happy' });
     saveState(state);
   }
 
@@ -130,6 +150,7 @@ export async function handleHook(): Promise<void> {
     if (comment) {
       systemMessages.push(comment);
       saveBubble(comment);
+      push({ type: 'comment', petState: 'talking' });
       saveState(state);
     }
   }
