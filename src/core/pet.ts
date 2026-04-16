@@ -26,6 +26,13 @@ export function loadState(): PetState | null {
     // Migration: add fields introduced in language-detection update
     if (!state.stats.langEdits) state.stats.langEdits = {};
     if (state.stats.nightEdits === undefined) state.stats.nightEdits = 0;
+    // Migration: fix expToNext from old EXP curve (pre-v0.4.0)
+    const correctExpToNext = state.species === 'codeslime'
+      ? Math.floor(expForLevel(state.level + 1) * 0.8)
+      : expForLevel(state.level + 1);
+    if (state.expToNext !== correctExpToNext) {
+      state.expToNext = correctExpToNext;
+    }
     return state;
   } catch {
     return null;
