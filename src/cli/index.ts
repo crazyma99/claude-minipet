@@ -59,10 +59,6 @@ async function main() {
       showStatusLine();
       break;
 
-    case 'login':
-      await doLogin(args[1]);
-      break;
-
     case 'sync':
       await doSync();
       break;
@@ -351,54 +347,6 @@ function prompt(question: string): Promise<string> {
   });
 }
 
-/** Login with email verification code */
-async function doLogin(serverUrl?: string) {
-  const url = serverUrl ?? DEFAULT_SERVER;
-
-  console.log(`  服务器: ${url}`);
-  const email = await prompt('  请输入邮箱: ');
-  if (!email || !email.includes('@')) {
-    console.log('  邮箱格式不正确');
-    return;
-  }
-
-  console.log('  发送验证码中...');
-  const sendResult = await sendCode(url, email);
-  if (!sendResult.ok) {
-    console.log(`  ❌ ${sendResult.error ?? '发送失败'}`);
-    return;
-  }
-  console.log('  ✅ 验证码已发送到邮箱');
-
-  const code = await prompt('  请输入验证码: ');
-  if (!code) {
-    console.log('  已取消');
-    return;
-  }
-
-  const verifyResult = await verifyCode(url, email, code);
-  if (!verifyResult.ok || !verifyResult.token) {
-    console.log(`  ❌ ${verifyResult.error ?? '验证失败'}`);
-    return;
-  }
-
-  saveAuth({
-    token: verifyResult.token,
-    email,
-    userId: verifyResult.userId!,
-    serverUrl: url,
-  });
-
-  console.log(`  ✅ 登录成功! (${email})`);
-
-  // Sync pet to server if exists
-  const state = loadState();
-  if (state) {
-    await syncPetToServer(state);
-    console.log('  ✅ 宠物数据已同步到服务器');
-  }
-}
-
 /** Sync pet data with server */
 async function doSync() {
   const auth = loadAuth();
@@ -470,8 +418,7 @@ function showHelp() {
 ${BOLD}claude-minipet${RESET} - Claude Code 终端宠物
 
 ${BOLD}命令:${RESET}
-  init              创建新宠物并配置 hooks
-  login <url>       登录服务器 (如: login https://minipet.crazyma99.xyz)
+  init              创建/恢复宠物并配置 hooks (含登录)
   sync              同步宠物数据到服务器
   redeem <code>     兑换码兑换宠物 (宠物重新培养)
   status            查看宠物详细状态

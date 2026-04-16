@@ -1,7 +1,9 @@
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { execSync } from 'node:child_process';
+
+const DATA_DIR = join(homedir(), '.claude-minipet');
 
 const UPDATE_CHECK_FILE = join(homedir(), '.claude-minipet', 'last-update-check');
 const CHECK_INTERVAL = 6 * 60 * 60 * 1000; // 6 hours
@@ -56,6 +58,7 @@ function shouldCheck(): boolean {
 /** Record that we just checked */
 function recordCheck(): void {
   try {
+    mkdirSync(DATA_DIR, { recursive: true });
     writeFileSync(UPDATE_CHECK_FILE, String(Date.now()), 'utf-8');
   } catch { /* ignore */ }
 }

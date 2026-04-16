@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import type { PetState } from './types.js';
@@ -25,6 +25,7 @@ export function loadAuth(): AuthData | null {
 
 /** Save auth data */
 export function saveAuth(data: AuthData): void {
+  mkdirSync(DATA_DIR, { recursive: true });
   writeFileSync(AUTH_FILE, JSON.stringify(data, null, 2), 'utf-8');
 }
 
