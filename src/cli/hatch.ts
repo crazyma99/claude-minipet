@@ -27,7 +27,7 @@ interface HatchCooldownResult {
   error?: string;
 }
 
-async function checkHatchCooldown(friendDna: string): Promise<HatchCooldownResult> {
+async function checkHatchCooldown(): Promise<HatchCooldownResult> {
   const auth = loadAuth();
   if (!auth) return { ok: false, error: '未登录' };
 
@@ -38,7 +38,6 @@ async function checkHatchCooldown(friendDna: string): Promise<HatchCooldownResul
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${auth.token}`,
       },
-      body: JSON.stringify({ friendDna }),
       signal: AbortSignal.timeout(5000),
     });
     return await res.json();
@@ -180,7 +179,7 @@ export async function doHatch(friendCode?: string): Promise<void> {
   //服务端冷却校验（72h）
   console.log('');
   console.log('  \u23F3 正在校验孵化冷却...');
-  const cooldownResult = await checkHatchCooldown(friendCode);
+  const cooldownResult = await checkHatchCooldown();
   if (!cooldownResult.ok) {
     if (cooldownResult.cooldown && cooldownResult.remainingSeconds) {
       console.log(`  \u274C 孵化冷却中，剩余 ${formatCooldown(cooldownResult.remainingSeconds)}`);
