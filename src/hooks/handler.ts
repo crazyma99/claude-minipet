@@ -7,9 +7,9 @@ import { syncPetToServer, loadAuth } from '../core/sync.js';
 import { writeSyncEvent, loadSyncStatus } from '../core/sync-status.js';
 import { generateCodeComment, reactToCodeQuality, checkEasterEgg } from '../core/comments.js';
 import { saveBubble, setBubbleCoding, setBubbleDone } from '../render/bubble.js';
+import { pushToOverlay } from '../core/overlay.js';
 import type { HookInput } from '../core/types.js';
 import { createRequire } from 'node:module';
-import http from 'node:http';
 
 const require = createRequire(import.meta.url);
 const PKG_VERSION: string = (() => {
@@ -17,43 +17,17 @@ const PKG_VERSION: string = (() => {
   catch { return 'unknown'; }
 })();
 
-/** Push event to desktop-pet for visual animation + speech bubble */
-function pushToDesktopPet(event: {
-  type: string;
-  message?: string;
-  level?: number;
-  mood?: number;
-  petState?: 'sleeping' | 'sitting' | 'eating' | 'moving' | 'happy' | 'cute' | 'talking' | 'waving';
-  withTTS?: boolean;
-}): void {
-  const config = loadConfig();
-  if (!config.desktopPetUrl) return;
-
-  const url = `${config.desktopPetUrl}/event`;
-  const data = JSON.stringify(event);
-
-  try {
-    const parsed = new URL(url);
-    const req = http.request({
-      hostname: parsed.hostname,
-      port: parsed.port,
-      path: parsed.pathname,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) },
-      timeout: 3000,
-    });
-    req.on('error', () => {}); // fire-and-forget
-    req.write(data);
-    req.end();
-  } catch { /* ignore */ }
-}
-
 /** Main hook handler - reads stdin JSON, processes event, outputs response */
 export async function handleHook(): Promise<void> {
   // Require both auth and pet state
   if (!loadAuth()) process.exit(0);
   const state = loadState();
   if (!state) process.exit(0);
+
+  // Read config once for the entire handler
+  const config = loadConfig();
+  const overlayUrl = config.desktopPetUrl;
+  const push = (event: Parameters<typeof pushToOverlay>[1]) => pushToOverlay(overlayUrl, event);
 
   // Read stdin
   const chunks: Buffer[] = [];
@@ -72,10 +46,12 @@ export async function handleHook(): Promise<void> {
   // Set bubble mode based on Claude's work state
   if (input.hook_event_name === 'UserPromptSubmit' || input.hook_event_name === 'PostToolUse') {
     setBubbleCoding();
-    pushToDesktopPet({ type: 'coding_start', petState: 'moving', message: '开始干活啦～莎莎陪你一起！', withTTS: true });
+    if (input.hook_event_name === 'UserPromptSubmit') {
+      push({ type: 'coding_start', petState: 'moving' });
+    }
   } else if (input.hook_event_name === 'Stop') {
     setBubbleDone();
-    pushToDesktopPet({ type: 'coding_done', petState: 'happy', message: '任务完成啦！你真棒～', withTTS: true });
+    push({ type: 'coding_done', petState: 'happy' });
   }
 
   // Process the event
@@ -86,11 +62,10 @@ export async function handleHook(): Promise<void> {
   if (moodReaction.moodDelta !== 0) {
     state.mood = Math.max(0, Math.min(100, state.mood + moodReaction.moodDelta));
     saveState(state);
-    // Push mood change to desktop pet
     if (moodReaction.moodDelta > 0) {
-      pushToDesktopPet({ type: 'mood_change', mood: state.mood, petState: 'happy', message: '代码跑通啦～越放下来的时候，反而你会更轻松！', withTTS: true });
+      push({ type: 'mood_up', mood: state.mood, petState: 'happy' });
     } else if (state.mood < 30) {
-      pushToDesktopPet({ type: 'mood_change', mood: state.mood, petState: 'cute', message: '别灰心～在最痛苦的时候，也能够再多坚持一下！', withTTS: true });
+      push({ type: 'mood_low', mood: state.mood, petState: 'cute' });
     }
   }
   if (moodReaction.anim) {
@@ -112,7 +87,7 @@ export async function handleHook(): Promise<void> {
     triggerAnim('exp');
   } else if (input.hook_event_name === 'SessionStart') {
     triggerAnim('pat'); // greeting animation
-    pushToDesktopPet({ type: 'session_start', petState: 'waving', message: '嗨～又见面啦，今天也一起加油吧！', withTTS: true });
+    push({ type: 'session_start', petState: 'waving' });
   }
 
   // Build output
@@ -136,15 +111,14 @@ export async function handleHook(): Promise<void> {
       systemMessages.push(levelUpNotification(state.name, level, color));
       saveBubble(`🎉 升级了！Lv.${level}！`);
       triggerAnim('levelup');
-      pushToDesktopPet({ type: 'level_up', level, petState: 'happy', message: `升到 Lv.${level} 啦～真正的伟大，永远知道如何重新出发！`, withTTS: true });
+      push({ type: 'level_up', level, petState: 'happy' });
     } else if (msg.startsWith('stage_up:')) {
       const stage = msg.split(':')[1];
       const color = RARITY_INFO[state.rarity].color;
       systemMessages.push(stageUpNotification(state.name, stage, color));
       saveBubble(`✨ 进化了！进入${stage === 'growth' ? '成长期' : '最终形态'}！`);
       triggerAnim('levelup');
-      const stageZh = stage === 'growth' ? '成长期' : '最终形态';
-      pushToDesktopPet({ type: 'stage_up', petState: 'happy', message: `进入${stageZh}啦～只要为梦想拼尽全力，每个人都可以成为自己的冠军！`, withTTS: true });
+      push({ type: 'stage_up', petState: 'happy' });
     } else if (msg.startsWith('evolution:')) {
       const evoName = msg.split(':')[1];
       const evo = getEvolutionInfo(state.species, evoName);
@@ -153,7 +127,7 @@ export async function handleHook(): Promise<void> {
         const fromName = state.species;
         systemMessages.push(evolutionAnimation(state.name, fromName, evo.name, evo.nameZh, color));
         saveBubble(`🧬 进化为 ${evo.nameZh}！`);
-        pushToDesktopPet({ type: 'evolution', petState: 'happy', message: `进化成 ${evo.nameZh} 啦～这就是坚持的力量！`, withTTS: true });
+        push({ type: 'evolution', petState: 'happy' });
         // Clear pending evolution after showing
         state.pendingEvolution = null;
         saveState(state);
@@ -166,7 +140,7 @@ export async function handleHook(): Promise<void> {
   if (egg) {
     systemMessages.push(egg);
     saveBubble(egg);
-    pushToDesktopPet({ type: 'comment', message: egg, withTTS: true });
+    push({ type: 'easter_egg', petState: 'happy' });
     saveState(state);
   }
 
@@ -176,7 +150,7 @@ export async function handleHook(): Promise<void> {
     if (comment) {
       systemMessages.push(comment);
       saveBubble(comment);
-      pushToDesktopPet({ type: 'comment', message: comment, withTTS: true });
+      push({ type: 'comment', petState: 'talking' });
       saveState(state);
     }
   }
