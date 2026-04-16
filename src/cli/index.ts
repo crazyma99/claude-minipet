@@ -2,6 +2,7 @@
 
 import { loadState, saveState, loadConfig, saveConfig, createPet, feedPet, patPet, ensureDataDir } from '../core/pet.js';
 import { generateDNA } from '../core/dna.js';
+import { doHatch } from './hatch.js';  // 2026-04-16 Eric: 孵化功能
 import { getRarityDisplay, RARITY_INFO } from '../core/rarity.js';
 import { renderStatusLine } from '../render/statusline.js';
 import { SPECIES_NAMES } from '../render/sprites.js';
@@ -65,6 +66,10 @@ async function main() {
 
     case 'redeem':
       await doRedeem(args[1]);
+      break;
+
+    case 'hatch':  // 2026-04-16 Eric: 孵化功能
+      await doHatch(args[1]);
       break;
 
     case 'daemon':
@@ -421,6 +426,7 @@ ${BOLD}命令:${RESET}
   init              创建/恢复宠物并配置 hooks (含登录)
   sync              同步宠物数据到服务器
   redeem <code>     兑换码兑换宠物 (宠物重新培养)
+  hatch <DNA码链>   配对孵化新宠物 (需 LV8)  // 2026-04-16 Eric
   status            查看宠物详细状态
   feed              喂食宠物 (饱食度 +30)
   pat               摸摸宠物 (心情 +10, 亲密 +2)
