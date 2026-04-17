@@ -4,3 +4,6 @@ dist-electron/
 assets/shasha/*.webm
 assets/tts/*.mp3
 assets/pet/*.gif
+*.tgz
+package-lock.json
+.DS_Store
