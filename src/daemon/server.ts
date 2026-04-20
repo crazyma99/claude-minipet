@@ -7,7 +7,9 @@ import { saveBubble } from '../render/bubble.js';
 import { writeFileSync, readFileSync, existsSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
+import { execSync } from 'node:child_process';
 import { createRequire } from 'node:module';
+import { killAllDaemons, isWin } from '../core/platform.js';
 import type { PetState } from '../core/types.js';
 
 const require = createRequire(import.meta.url);
@@ -29,12 +31,18 @@ function writePid(): void {
   writeFileSync(PID_FILE, String(process.pid), 'utf-8');
 }
 
-/** Check if daemon is already running */
+/** Check if daemon is already running (cross-platform) */
 export function isDaemonRunning(): boolean {
   if (!existsSync(PID_FILE)) return false;
   try {
     const pid = parseInt(readFileSync(PID_FILE, 'utf-8').trim());
-    // Check if process exists
+    if (!pid) return false;
+    if (isWin) {
+      // tasklist exits 0 even if no match; check output for the PID
+      const out = execSync(`tasklist /FI "PID eq ${pid}" /NH /FO CSV`, { encoding: 'utf-8', timeout: 3000 }).trim();
+      return out.includes(String(pid));
+    }
+    // Unix: signal 0 checks process existence
     process.kill(pid, 0);
     return true;
   } catch {
@@ -165,55 +173,11 @@ export function startDaemon(): void {
 
   process.on('SIGTERM', cleanup);
   process.on('SIGINT', cleanup);
+  // Windows: 'exit' event as last-resort cleanup (SIGTERM not reliably delivered)
+  process.on('exit', () => { try { unlinkSync(PID_FILE); } catch {} });
 
   // Keep process alive
   process.stdin.resume();
-}
-
-/** Kill ALL minipet daemon processes and wait until none remain */
-function killAllDaemons(): void {
-  const { execSync } = require('node:child_process');
-  const myPid = process.pid;
-
-  const findAndKill = () => {
-    try {
-      // Find all minipet daemon processes except ourselves
-      const out = execSync("ps ax -o pid,command | grep '[d]aemon start' | grep minipet", {
-        encoding: 'utf-8',
-        timeout: 5000,
-      }).trim();
-      if (!out) return 0;
-      let killed = 0;
-      for (const line of out.split('\n')) {
-        const pid = parseInt(line.trim());
-        if (!pid || pid === myPid) continue;
-        try { process.kill(pid, 'SIGTERM'); killed++; } catch { /* already dead */ }
-      }
-      return killed;
-    } catch { return 0; } // grep exits 1 when no match
-  };
-
-  findAndKill();
-
-  // Wait up to 5 seconds for all to die
-  for (let i = 0; i < 50; i++) {
-    try {
-      const out = execSync("ps ax -o pid,command | grep '[d]aemon start' | grep minipet", {
-        encoding: 'utf-8',
-        timeout: 5000,
-      }).trim();
-      // Filter out ourselves
-      const others = out.split('\n').filter((l: string) => {
-        const pid = parseInt(l.trim());
-        return pid && pid !== myPid;
-      });
-      if (others.length === 0) break;
-    } catch { break; } // no matches = all dead
-    execSync('sleep 0.1', { stdio: 'ignore' });
-  }
-
-  // Clean up PID file
-  try { unlinkSync(PID_FILE); } catch { /* ignore */ }
 }
 
 /** Stop the daemon */

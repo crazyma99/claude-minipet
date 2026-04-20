@@ -5,10 +5,7 @@
  * Restarts daemon if running (to pick up new code), shows welcome message.
  */
 
-import { spawn, execSync } from 'node:child_process';
-import { unlinkSync } from 'node:fs';
-import { join } from 'node:path';
-import { homedir } from 'node:os';
+import { findDaemonPids, killAllDaemons, spawnDetached } from '../core/platform.js';
 
 const BOLD = '\x1b[1m';
 const RESET = '\x1b[0m';
@@ -19,41 +16,12 @@ const GREEN = '\x1b[38;2;80;220;100m';
 if (process.env.CI || process.env.DOCKER) process.exit(0);
 
 // Check if any daemon was running, kill all, then restart
-let wasRunning = false;
-try {
-  const out = execSync("ps ax -o pid,command | grep '[d]aemon start' | grep minipet", {
-    encoding: 'utf-8', timeout: 5000,
-  }).trim();
-  wasRunning = out.length > 0;
-} catch { /* grep exits 1 = no match = not running */ }
+const wasRunning = findDaemonPids().length > 0;
 
 if (wasRunning) {
-  // Kill all minipet daemon processes
-  // Kill using PIDs from ps (more reliable than pkill pattern matching)
-  try {
-    const pids = execSync("ps ax -o pid,command | grep '[d]aemon start' | grep minipet", {
-      encoding: 'utf-8', timeout: 5000,
-    }).trim().split('\n').map(l => parseInt(l.trim())).filter(Boolean);
-    for (const pid of pids) {
-      try { process.kill(pid, 'SIGTERM'); } catch { /* ignore */ }
-    }
-  } catch { /* no matches */ }
-  // Wait up to 5s for all to die
-  for (let i = 0; i < 50; i++) {
-    try {
-      execSync("ps ax -o pid,command | grep '[d]aemon start' | grep minipet", { timeout: 3000 });
-      execSync('sleep 0.1', { stdio: 'ignore' });
-    } catch { break; } // no matches = all dead
-  }
-  // Clean PID file
-  const PID_FILE = join(homedir(), '.claude-minipet', 'daemon.pid');
-  try { unlinkSync(PID_FILE); } catch { /* ignore */ }
+  killAllDaemons();
   // Start new daemon
-  const child = spawn('claude-minipet', ['daemon', 'start'], {
-    detached: true,
-    stdio: 'ignore',
-  });
-  child.unref();
+  spawnDetached('claude-minipet', ['daemon', 'start']);
   console.log(`  ${GREEN}✓${RESET} Daemon 已自动重启`);
 }
 

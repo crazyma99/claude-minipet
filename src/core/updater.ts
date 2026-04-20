@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 
 const DATA_DIR = join(homedir(), '.claude-minipet');
@@ -12,7 +13,7 @@ const PACKAGE_NAME = 'claude-minipet';
 /** Get current installed version */
 function getCurrentVersion(): string {
   try {
-    const pkgPath = new URL('../../package.json', import.meta.url).pathname;
+    const pkgPath = fileURLToPath(new URL('../../package.json', import.meta.url));
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
     return pkg.version;
   } catch {

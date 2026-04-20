@@ -227,12 +227,8 @@ async function finishSetup() {
 
   if (!isDaemonRunning()) {
     try {
-      const { spawn } = await import('node:child_process');
-      const child = spawn('claude-minipet', ['daemon', 'start'], {
-        detached: true,
-        stdio: 'ignore',
-      });
-      child.unref();
+      const { spawnDetached } = await import('../core/platform.js');
+      spawnDetached('claude-minipet', ['daemon', 'start']);
       console.log('  ✅ 守护进程已启动');
     } catch { /* ignore */ }
   }
@@ -432,9 +428,14 @@ function openDiy() {
     return;
   }
   const url = `${DIY_URL}?token=${auth.token}`;
-  const cmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
   try {
-    execSync(`${cmd} "${url}"`);
+    if (process.platform === 'darwin') {
+      execSync(`open "${url}"`);
+    } else if (process.platform === 'win32') {
+      execSync(`start "" "${url}"`, { shell: 'cmd.exe' });
+    } else {
+      execSync(`xdg-open "${url}"`);
+    }
     console.log('  🎨 已打开 DIY 形象生成页面');
   } catch {
     console.log(`  请手动打开: ${DIY_URL}`);
