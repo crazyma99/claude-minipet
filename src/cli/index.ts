@@ -12,6 +12,7 @@ import { installHooks } from './install.js';
 import { fg, RESET, BOLD } from '../render/pixel.js';
 import { triggerAnim } from '../render/anim-state.js';
 import { loadAuth, saveAuth, sendCode, verifyCode, syncPetToServer, fetchPetFromServer, redeemCode } from '../core/sync.js';
+import { execSync } from 'node:child_process';
 import type { PetConfig } from '../core/types.js';
 import { createInterface } from 'node:readline';
 import { checkAndUpdate } from '../core/updater.js';
@@ -70,6 +71,10 @@ async function main() {
 
     case 'hatch':
       await doHatch(args[1]);
+      break;
+
+    case 'diy':
+      openDiy();
       break;
 
     case 'daemon':
@@ -418,6 +423,24 @@ async function doRedeem(code?: string) {
   }
 }
 
+const DIY_URL = 'https://minipet.crazyma99.xyz/diy';
+
+function openDiy() {
+  const auth = loadAuth();
+  if (!auth) {
+    console.log('  请先运行 claude-minipet init 登录');
+    return;
+  }
+  const url = `${DIY_URL}?token=${auth.token}`;
+  const cmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
+  try {
+    execSync(`${cmd} "${url}"`);
+    console.log('  🎨 已打开 DIY 形象生成页面');
+  } catch {
+    console.log(`  请手动打开: ${DIY_URL}`);
+  }
+}
+
 function showHelp() {
   console.log(`
 ${BOLD}claude-minipet${RESET} - Claude Code 终端宠物
@@ -427,6 +450,7 @@ ${BOLD}命令:${RESET}
   sync              同步宠物数据到服务器
   redeem <code>     兑换码兑换宠物 (宠物重新培养)
   hatch <DNA码链>   配对孵化新宠物 (需 LV8)
+  diy               打开自定义形象生成页面 (需兑换码)
   status            查看宠物详细状态
   feed              喂食宠物 (饱食度 +30)
   pat               摸摸宠物 (心情 +10, 亲密 +2)

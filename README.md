@@ -84,6 +84,7 @@ claude-minipet pat               # 摸摸（心情 +10，亲密 +2）
 claude-minipet rename <名字>     # 给宠物改名
 claude-minipet redeem <兑换码>   # 兑换码兑换宠物
 claude-minipet hatch <DNA码链>   # 配对孵化新宠物（需 LV8）
+claude-minipet diy               # 打开自定义形象生成页面（需兑换码）
 claude-minipet sync              # 手动同步云端数据
 ```
 
@@ -110,6 +111,19 @@ claude-minipet redeem XXXX-XXXX-XXXX
 - **💬 宠物气泡** — 实时语音气泡，显示工作状态、评语、彩蛋
 - **🧠 AI 感知** — 新会话自动识别宠物命令，说"喂宠物"即可执行
 - **💓 心跳监测** — 客户端每 60 秒上报心跳，服务端实时追踪在线状态和客户端版本
+- **🎨 DIY 形象** — 上传照片生成专属桌面宠物形象（需兑换码），搭配 [minipet-overlay](https://github.com/JiayiXie-jpg/minipet-overlay) 使用
+
+## 自定义形象 (DIY)
+
+上传一张照片，AI 自动生成 5 个动画状态的桌面宠物形象：
+
+```bash
+claude-minipet diy    # 打开生成页面（需 DIY 兑换码）
+```
+
+生成流程：识别主体 → 生成卡通底图 → 生成 5 个动画 → 抠图去背景，约 10-15 分钟，全程异步，可关闭页面稍后查看。
+
+搭配 [minipet-overlay](https://github.com/JiayiXie-jpg/minipet-overlay) 桌面应用使用生成的形象。
 
 ## 配对孵化
 
